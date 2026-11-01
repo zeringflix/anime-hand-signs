@@ -1,0 +1,470 @@
+--!strict
+-- Simulator systems: pets/eggs, auras, upgrades, rebirth, offline gains, daily/playtime/milestone rewards, codes,
+-- leaderboards, game passes + developer products. Every action is validated here; the client only asks.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DataStoreService = game:GetService("DataStoreService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage.Shared.Config)
+local SC = require(ReplicatedStorage.Shared.SystemsConfig)
+local DataService = require(script.Parent.DataService)
+local GameService = require(script.Parent.GameService)
+
+local SystemsService = {}
+local R = GameService.Remotes
+local sessionStart: {[Player]: number} = {}
+local playtimeClaimed: {[Player]: {[number]: boolean}} = {}
+local ownedPasses: {[Player]: {[string]: boolean}} = {}
+local freeAutoUntil: {[Player]: number} = {}
+local freeAutoReady: {[Player]: number} = {}
+
+---------------------------------------------------------------- multipliers
+local function petMultiplier(data: any): number
+	local sum = 0
+	for _, uid in data.EquippedPets do
+		local rec = data.Pets[uid]
+		local def = rec and SC.Pets[rec.Pet]
+		if def then sum += def.Boost end
+	end
+	return 1 + sum * (1 + 0.1 * GameService.UpgradeLevel(data, "PetBoost"))
+end
+SystemsService.PetMultiplier = petMultiplier
+
+local function hasPass(p: Player, key: string): boolean
+	local t = ownedPasses[p]
+	return t ~= nil and t[key] == true
+end
+
+GameService.MultiplierProviders.Pets = function(_p, data) return petMultiplier(data) end
+GameService.MultiplierProviders.Aura = function(_p, data)
+	local a = SC.Auras[data.EquippedAura]
+	return (a and data.Auras[a.Id]) and a.Mult or 1
+end
+GameService.MultiplierProviders.Passes = function(p, data)
+	local m = 1
+	if hasPass(p, "DoubleSigns") then m *= 2 end
+	if hasPass(p, "VIP") then m *= 1.25 end
+	if (data.BoostUntil or 0) > os.time() then m *= 2 end
+	return m
+end
+GameService.TrophyBonus = function(p, _data)
+	local m = 1
+	if hasPass(p, "DoubleTrophies") then m *= 2 end
+	if hasPass(p, "VIP") then m *= 1.25 end
+	return m
+end
+
+local function petSlots(p: Player, data: any): number
+	return SC.BasePetSlots + GameService.UpgradeLevel(data, "PetSlots") + (hasPass(p, "ExtraPets") and 3 or 0)
+end
+
+---------------------------------------------------------------- replication for visuals (other clients render pets/auras)
+local function publishLooks(p: Player, data: any)
+	local shown = {}
+	for _, uid in data.EquippedPets do
+		local rec = data.Pets[uid]
+		if rec then table.insert(shown, rec.Pet) end
+	end
+	p:SetAttribute("PetsShown", table.concat(shown, ","))
+	p:SetAttribute("Aura", (data.Auras[data.EquippedAura] and data.EquippedAura) or "")
+end
+
+GameService.SnapshotExtras[#GameService.SnapshotExtras + 1] = function(p, data, snap)
+	snap.PetSlots = petSlots(p, data)
+	snap.PetMult = petMultiplier(data)
+	snap.PendingOffline = data.PendingOffline
+	snap.BoostUntil = data.BoostUntil
+	snap.ClaimedMilestones = data.ClaimedMilestones
+	local pt = {}
+	for k, v in playtimeClaimed[p] or {} do pt[tostring(k)] = v end
+	snap.Playtime = pt
+	snap.SessionStart = sessionStart[p] and (os.time() - math.floor(os.clock() - sessionStart[p])) or os.time()
+	snap.Passes = ownedPasses[p] or {}
+	snap.RedeemedCodes = data.RedeemedCodes
+	snap.RebirthCost = SC.RebirthCost(data.Rebirths)
+	snap.FreeAutoUntil = freeAutoUntil[p] or 0
+	snap.FreeAutoReady = freeAutoReady[p] or 0
+end
+
+local function changed(p: Player)
+	local data = DataService.Get(p)
+	if data then publishLooks(p, data) end
+	GameService.Refresh(p)
+end
+
+local function spend(data: any, amount: number): boolean
+	if amount ~= amount or amount < 0 or data.Trophies < amount then return false end
+	data.Trophies -= amount
+	return true
+end
+
+local function countPets(data: any): number
+	local n = 0
+	for _ in data.Pets do n += 1 end
+	return n
+end
+
+---------------------------------------------------------------- actions
+local A: {[string]: (Player, any, any) -> any} = {}
+
+function A.Hatch(p, data, eggId)
+	local egg = typeof(eggId) == "string" and SC.Eggs[eggId]
+	if not egg then return {ok = false, msg = "Unknown egg"} end
+	if data.HighestUnlockedStage < egg.Stage then return {ok = false, msg = "Reach Stage " .. egg.Stage .. " first"} end
+	if countPets(data) >= SC.MaxPetsOwned then return {ok = false, msg = "Pet inventory full - delete some pets"} end
+	if not spend(data, egg.Cost) then return {ok = false, msg = "Not enough Trophies"} end
+	-- server-side roll with the same odds the UI shows
+	local roll = Random.new():NextNumber() * 100
+	local acc, chosen = 0, egg.Odds[#egg.Odds].Pet
+	for _, row in egg.Odds do
+		acc += row.Chance
+		if roll <= acc then chosen = row.Pet; break end
+	end
+	local uid = "p" .. data.NextPetId
+	data.NextPetId += 1
+	data.Pets[uid] = {Pet = chosen, Locked = false}
+	if #data.EquippedPets < petSlots(p, data) then table.insert(data.EquippedPets, uid) end
+	changed(p)
+	return {ok = true, pet = chosen, uid = uid}
+end
+
+function A.EquipPet(p, data, uid)
+	if typeof(uid) ~= "string" or not data.Pets[uid] then return {ok = false} end
+	local i = table.find(data.EquippedPets, uid)
+	if i then
+		table.remove(data.EquippedPets, i)
+	else
+		if #data.EquippedPets >= petSlots(p, data) then return {ok = false, msg = "All pet slots are full"} end
+		table.insert(data.EquippedPets, uid)
+	end
+	changed(p)
+	return {ok = true}
+end
+
+function A.EquipBest(p, data)
+	local list = {}
+	for uid, rec in data.Pets do if SC.Pets[rec.Pet] then table.insert(list, uid) end end
+	table.sort(list, function(a, b) return SC.Pets[data.Pets[a].Pet].Boost > SC.Pets[data.Pets[b].Pet].Boost end)
+	data.EquippedPets = {}
+	for i = 1, math.min(#list, petSlots(p, data)) do table.insert(data.EquippedPets, list[i]) end
+	changed(p)
+	return {ok = true}
+end
+
+function A.LockPet(p, data, uid)
+	local rec = typeof(uid) == "string" and data.Pets[uid]
+	if not rec then return {ok = false} end
+	rec.Locked = not rec.Locked
+	changed(p)
+	return {ok = true}
+end
+
+function A.DeletePet(p, data, uid)
+	local rec = typeof(uid) == "string" and data.Pets[uid]
+	if not rec then return {ok = false} end
+	if rec.Locked then return {ok = false, msg = "Unlock the pet first"} end
+	local i = table.find(data.EquippedPets, uid)
+	if i then table.remove(data.EquippedPets, i) end
+	data.Pets[uid] = nil
+	changed(p)
+	return {ok = true}
+end
+
+function A.BuyAura(p, data, id)
+	local a = typeof(id) == "string" and SC.Auras[id]
+	if not a then return {ok = false} end
+	if data.Auras[id] then -- already owned: toggle equip
+		data.EquippedAura = data.EquippedAura == id and "" or id
+		changed(p)
+		return {ok = true}
+	end
+	if data.HighestUnlockedStage < a.Stage then return {ok = false, msg = "Reach Stage " .. a.Stage .. " first"} end
+	if not spend(data, a.Cost) then return {ok = false, msg = "Not enough Trophies"} end
+	data.Auras[id] = true
+	data.EquippedAura = id
+	changed(p)
+	return {ok = true, bought = true}
+end
+
+function A.BuyUpgrade(p, data, id)
+	local u = typeof(id) == "string" and SC.Upgrades[id]
+	if not u then return {ok = false} end
+	local lvl = data.Upgrades[id] or 0
+	if lvl >= u.Max then return {ok = false, msg = "Maxed"} end
+	if not spend(data, SC.UpgradeCost(id, lvl)) then return {ok = false, msg = "Not enough Trophies"} end
+	data.Upgrades[id] = lvl + 1
+	changed(p)
+	return {ok = true}
+end
+
+function A.Rebirth(p, data)
+	local cost = SC.RebirthCost(data.Rebirths)
+	if data.HandSigns < cost then return {ok = false, msg = "Need " .. Config.Format(cost) .. " Hand Signs"} end
+	data.HandSigns = 0 -- only Hand Signs reset (see SystemsConfig.RebirthResets)
+	data.Rebirths += 1
+	GameService.Notify(p, "Rebirth", data.Rebirths)
+	changed(p)
+	DataService.SaveNow(p)
+	return {ok = true}
+end
+
+function A.ClaimOffline(p, data)
+	local amt = data.PendingOffline or 0
+	if amt <= 0 then return {ok = false} end
+	data.PendingOffline = 0
+	GameService.AddHandSigns(p, amt)
+	return {ok = true, amount = amt}
+end
+
+function A.ClaimDaily(p, data)
+	local now = os.time()
+	if now - data.LastDaily < SC.DailyCooldown then return {ok = false, msg = "Come back later"} end
+	data.DailyStreak = (now - data.LastDaily > SC.DailyStreakReset) and 1 or data.DailyStreak + 1
+	data.LastDaily = now
+	local amt = SC.DailyReward(data.DailyStreak, data.HighestUnlockedStage)
+	GameService.AddTrophies(p, amt)
+	changed(p)
+	return {ok = true, amount = amt}
+end
+
+function A.ClaimPlaytime(p, data, idx)
+	local row = typeof(idx) == "number" and SC.PlaytimeRewards[idx]
+	if not row then return {ok = false} end
+	local claimed = playtimeClaimed[p] or {}
+	playtimeClaimed[p] = claimed
+	if claimed[idx] then return {ok = false} end
+	if (os.clock() - (sessionStart[p] or os.clock())) < row.Minutes * 60 then return {ok = false, msg = "Not yet"} end
+	claimed[idx] = true
+	local amt = Config.Stages[data.HighestUnlockedStage].Trophies * row.Mult
+	GameService.AddTrophies(p, amt)
+	changed(p)
+	return {ok = true, amount = amt}
+end
+
+function A.ClaimMilestone(p, data, stage)
+	if typeof(stage) ~= "number" or not table.find(SC.MilestoneStages, stage) then return {ok = false} end
+	local key = tostring(stage)
+	if data.ClaimedMilestones[key] or not data.CompletedStages[key] then return {ok = false} end
+	data.ClaimedMilestones[key] = true
+	local amt = Config.Stages[stage].Trophies * 50
+	GameService.AddTrophies(p, amt)
+	changed(p)
+	return {ok = true, amount = amt}
+end
+
+function A.Redeem(p, data, code)
+	if typeof(code) ~= "string" or #code > 30 then return {ok = false, msg = "Invalid code"} end
+	code = string.upper(code:gsub("%s", ""))
+	local c = SC.Codes[code]
+	if not c then return {ok = false, msg = "Invalid code"} end
+	if c.Expires > 0 and os.time() > c.Expires then return {ok = false, msg = "Code expired"} end
+	if data.RedeemedCodes[code] then return {ok = false, msg = "Already redeemed"} end
+	data.RedeemedCodes[code] = true
+	GameService.AddTrophies(p, c.Trophies)
+	changed(p)
+	return {ok = true, amount = c.Trophies}
+end
+
+local SETTINGS = {ReduceEffects = true, Music = true, AutoTrain = true, HideOtherPets = true}
+function A.Setting(p, data, key, value)
+	if typeof(key) ~= "string" or not SETTINGS[key] or typeof(value) ~= "boolean" then return {ok = false} end
+	data.Settings[key] = value
+	changed(p)
+	return {ok = true}
+end
+
+function A.FreeAuto(p, _data)
+	local now = os.time()
+	if now < (freeAutoReady[p] or 0) then return {ok = false, msg = "Free Auto Clicker recharging"} end
+	freeAutoUntil[p] = now + SC.FreeAuto.ActiveSeconds
+	freeAutoReady[p] = now + SC.FreeAuto.ActiveSeconds + SC.FreeAuto.CooldownSeconds
+	changed(p)
+	return {ok = true}
+end
+
+function A.Leaderboards()
+	return {ok = true, boards = SystemsService.Boards}
+end
+
+function A.BuyPass(p, _data, key)
+	local gp = typeof(key) == "string" and SC.GamePasses[key]
+	if not gp or gp.Id == 0 then return {ok = false, msg = "Not available yet"} end
+	MarketplaceService:PromptGamePassPurchase(p, gp.Id)
+	return {ok = true}
+end
+
+function A.BuyProduct(p, _data, key)
+	local dp = typeof(key) == "string" and SC.DevProducts[key]
+	if not dp or dp.Id == 0 then return {ok = false, msg = "Not available yet"} end
+	MarketplaceService:PromptProductPurchase(p, dp.Id)
+	return {ok = true}
+end
+
+R.Action.OnServerInvoke = function(p: Player, kind: any, a1: any, a2: any)
+	if not GameService.RateOk(p, "action", 6) then return {ok = false, msg = "Slow down"} end
+	if typeof(kind) ~= "string" then return {ok = false} end
+	local f = A[kind]
+	local data = DataService.Get(p)
+	if not f or not data then return {ok = false} end
+	if kind ~= "Leaderboards" and not DataService.CanMutate(p) then return {ok = false, msg = "Data not ready"} end
+	local ok, res = pcall(f, p, data, a1, a2)
+	if not ok then warn("[SystemsService]", kind, res); return {ok = false} end
+	return res
+end
+
+---------------------------------------------------------------- offline gains (server clock only)
+local function computeOffline(p: Player, data: any)
+	if (data.LastSeen or 0) <= 0 then return end
+	local away = os.time() - data.LastSeen
+	if away < 120 then return end
+	local maxSec = (SC.OfflineBaseMaxHours + GameService.UpgradeLevel(data, "Offline")) * 3600
+	local secs = math.min(away, maxSec)
+	local gain = GameService.TrainGain(p, data) * SC.OfflineTrainsPerSecond * secs * (1 + 0.25 * GameService.UpgradeLevel(data, "Offline"))
+	if gain >= 1 then
+		data.PendingOffline = math.floor(gain)
+		data.LastSeen = os.time() -- consumed: a rejoin cannot claim the same window twice
+		GameService.Notify(p, "Offline", {Amount = data.PendingOffline, Seconds = secs})
+	end
+end
+
+---------------------------------------------------------------- passes + receipts
+local function refreshPasses(p: Player)
+	local t = {}
+	for key, gp in SC.GamePasses do
+		if gp.Id ~= 0 then
+			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, p.UserId, gp.Id)
+			if ok and owns then t[key] = true end
+		end
+	end
+	ownedPasses[p] = t
+end
+
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(p, id, bought)
+	if bought then refreshPasses(p); changed(p) end
+end)
+
+local productHandlers: {[number]: (Player, any) -> ()} = {}
+for key, dp in SC.DevProducts do
+	if dp.Id ~= 0 and key == "Boost15" then
+		productHandlers[dp.Id] = function(_p, data)
+			data.BoostUntil = math.max(os.time(), data.BoostUntil or 0) + 15 * 60
+		end
+	elseif dp.Id ~= 0 and (dp :: any).Clicks then
+		productHandlers[dp.Id] = function(p, data)
+			-- pack value tracks the buyer's current per-click gain at purchase time
+			local amount = GameService.TrainGain(p, data) * (dp :: any).Clicks
+			data.HandSigns += amount
+			data.LifetimeHandSigns += amount
+		end
+	end
+end
+if next(productHandlers) then
+	MarketplaceService.ProcessReceipt = function(info)
+		local p = Players:GetPlayerByUserId(info.PlayerId)
+		local data = p and DataService.Get(p)
+		if not p or not data or not DataService.CanMutate(p) then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		if data.Receipts[info.PurchaseId] then return Enum.ProductPurchaseDecision.PurchaseGranted end
+		local h = productHandlers[info.ProductId]
+		if not h then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		h(p, data)
+		data.Receipts[info.PurchaseId] = os.time()
+		-- keep the receipt log bounded
+		local n, oldestK, oldestT = 0, nil, math.huge
+		for k, t in data.Receipts do n += 1; if t < oldestT then oldestK, oldestT = k, t end end
+		if n > 100 and oldestK then data.Receipts[oldestK] = nil end
+		changed(p)
+		DataService.SaveNow(p)
+		return Enum.ProductPurchaseDecision.PurchaseGranted
+	end
+end
+
+---------------------------------------------------------------- leaderboards (log-encoded so huge numbers fit OrderedDataStore integers)
+SystemsService.Boards = {} :: {[string]: {{Name: string, Value: number}}}
+local BOARD_STATS = {
+	LifetimeHandSigns = function(d) return d.LifetimeHandSigns end,
+	Trophies = function(d) return d.LifetimeTrophies end,
+	Rebirths = function(d) return d.Rebirths end,
+	Stage = function(d) return d.HighestUnlockedStage end,
+}
+local function encode(v: number): number return v <= 0 and 0 or math.floor(math.log10(v + 1) * 1e6) end
+local function decode(v: number): number return 10 ^ (v / 1e6) - 1 end
+local stores: {[string]: OrderedDataStore} = {}
+local function startLeaderboards()
+	for stat in BOARD_STATS do
+		local ok, s = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, "LB_" .. stat .. "_v1")
+		if ok then stores[stat] = s end
+	end
+	if not next(stores) then return end
+	task.spawn(function()
+		while true do
+			for stat, fn in BOARD_STATS do
+				local store = stores[stat]
+				if store then
+					for _, p in Players:GetPlayers() do
+						local d = DataService.Get(p)
+						if d then pcall(store.SetAsync, store, tostring(p.UserId), encode(fn(d))) end
+					end
+					local ok, pages = pcall(store.GetSortedAsync, store, false, 10)
+					if ok then
+						local list = {}
+						for _, row in pages:GetCurrentPage() do
+							local okN, name = pcall(Players.GetNameFromUserIdAsync, Players, tonumber(row.key) or 0)
+							table.insert(list, {Name = okN and name or ("#" .. row.key), Value = decode(row.value)})
+						end
+						SystemsService.Boards[stat] = list
+					end
+				end
+				task.wait(5)
+			end
+			local holder = ReplicatedStorage:FindFirstChild("LeaderboardData") :: StringValue?
+			if holder then holder.Value = HttpService:JSONEncode(SystemsService.Boards) end
+			task.wait(90)
+		end
+	end)
+end
+
+---------------------------------------------------------------- lifecycle
+function SystemsService.Start()
+	local holder = Instance.new("StringValue")
+	holder.Name = "LeaderboardData"
+	holder.Value = "{}"
+	holder.Parent = ReplicatedStorage
+
+	DataService.OnLoaded(function(p, data)
+		sessionStart[p] = os.clock()
+		playtimeClaimed[p] = {}
+		refreshPasses(p)
+		-- drop records for pets that no longer exist in config
+		for uid, rec in data.Pets do if not SC.Pets[rec.Pet] then data.Pets[uid] = nil end end
+		for i = #data.EquippedPets, 1, -1 do if not data.Pets[data.EquippedPets[i]] then table.remove(data.EquippedPets, i) end end
+		computeOffline(p, data)
+		changed(p)
+	end)
+	Players.PlayerRemoving:Connect(function(p)
+		sessionStart[p] = nil; playtimeClaimed[p] = nil; ownedPasses[p] = nil; freeAutoUntil[p] = nil; freeAutoReady[p] = nil
+	end)
+
+	-- auto train (upgrade): 2 trains per second, server-side
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			for _, p in Players:GetPlayers() do
+				local d = DataService.Get(p)
+				if d then
+					local rate = 0
+					if GameService.UpgradeLevel(d, "AutoTrain") >= 1 and d.Settings.AutoTrain ~= false then rate = 2 end
+					if (freeAutoUntil[p] or 0) > os.time() then rate = math.max(rate, SC.FreeAuto.TrainsPerSecond) end
+					if hasPass(p, "AutoClicker") and d.Settings.AutoTrain ~= false then rate = math.max(rate, SC.OPAutoTrainsPerSecond) end
+					if rate > 0 then GameService.AddHandSigns(p, GameService.TrainGain(p, d) * rate) end
+				end
+			end
+		end
+	end)
+
+	if not RunService:IsStudio() or game.PlaceId ~= 0 then startLeaderboards() end
+end
+
+return SystemsService
