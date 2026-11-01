@@ -1,0 +1,21 @@
+name: Workspace integrity
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  docs-present:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required planning files
+        shell: bash
+        run: |
+          for path in README.md CLAUDE.md AGENTS.md docs/GAME_SPEC.md docs/ROADMAP.md docs/WORKFLOW.md docs/STATUS.md docs/TEST_PLAN.md; do
+            if [ ! -s "$path" ]; then
+              echo "Missing or empty: $path"
+              exit 1
+            fi
+          done
+          echo "Workspace files found. This does NOT verify Roblox gameplay."
