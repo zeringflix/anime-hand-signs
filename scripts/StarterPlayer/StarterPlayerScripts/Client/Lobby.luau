@@ -11,6 +11,8 @@ local HttpService = game:GetService("HttpService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Menus = require(script.Parent:WaitForChild("Menus"))
+local U = require(script.Parent:WaitForChild("UIKit"))
+local Sfx = require(script.Parent:WaitForChild("Sfx"))
 
 local player = Players.LocalPlayer
 local C = Color3.fromRGB
@@ -43,10 +45,8 @@ local function updatePad(m: Instance)
 	local s = id and Config.HandSigns[id]
 	if not s then return end
 	local st = stateOf(id)
-	local stageOk = (attr("Highest") or 1) >= s.Stage
-	local powerOk = (attr("HandSigns") or 0) >= s.Power
 	local priceOk = (attr("Trophies") or 0) >= s.Price
-	local sig = st .. tostring(stageOk) .. tostring(powerOk) .. tostring(priceOk)
+	local sig = st .. tostring(priceOk)
 	if lastSig[m] == sig then return end
 	lastSig[m] = sig
 	local info = STATE[st]
@@ -62,29 +62,20 @@ local function updatePad(m: Instance)
 	end
 	local card = m:FindFirstChild("Anchor") and (m :: any).Anchor:FindFirstChild("Card")
 	if card then
-		local req = card:FindFirstChild("Req") :: TextLabel?
+		-- Anime Eyes text stack: name / xN / trophy price (green if affordable) or EQUIPPED (green) / OWNED (yellow)
 		local status = card:FindFirstChild("Status") :: TextLabel?
-		if req then
-			if st == "Equipped" or st == "Owned" or s.Price <= 0 then
-				req.Text = "x" .. Config.Format(s.Multiplier) .. " multiplier unlocked"
-				req.TextColor3 = GOOD
-			else
-				req.RichText = true
-				local function part(ok: boolean, t: string) return string.format('<font color="#%s">%s</font>', (ok and GOOD or BAD):ToHex(), t) end
-				req.Text = part(stageOk, "STAGE " .. s.Stage) .. " · " .. part(powerOk, Config.Format(s.Power) .. " SIGNS")
-			end
-		end
 		local priceIcon = card:FindFirstChild("PriceIcon") :: ImageLabel?
 		if status then
 			local buying = st == "Ready" or st == "Locked"
 			if priceIcon then priceIcon.Visible = buying end
 			if buying then
 				status.Text = Config.Format(s.Price)
-				status.TextColor3 = priceOk and C(255, 214, 90) or BAD
+				status.TextColor3 = priceOk and GOOD or BAD
 				status.Position = UDim2.fromScale(priceIcon and 0.36 or 0.05, 0.75)
 				status.Size = UDim2.fromScale(priceIcon and 0.5 or 0.9, 0.25)
 			else
 				status.Text = st == "Equipped" and "EQUIPPED" or "OWNED"
+				status.Font = Enum.Font.LuckiestGuy
 				status.TextColor3 = info.Color
 				status.Position = UDim2.fromScale(0.05, 0.75)
 				status.Size = UDim2.fromScale(0.9, 0.25)
@@ -114,6 +105,10 @@ local function onPrompt(prompt: ProximityPrompt)
 		local eggId = prompt:GetAttribute("EggId")
 		local res = Menus.Act("Hatch", eggId)
 		if res and res.ok and ctx.HatchAnimation then ctx.HatchAnimation(eggId, res.pet) end
+	elseif action == "Product" then
+		-- Robux pet / item: server prompts the developer product (or answers "Not available yet" while Id = 0)
+		local key = prompt:GetAttribute("Product")
+		if typeof(key) == "string" then Menus.Act("BuyProduct", key) end
 	elseif action == "Pass" then
 		-- Robux training zone: server prompts the real game pass (or answers "Not available yet" while Id = 0)
 		local key = prompt:GetAttribute("Pass")
@@ -181,11 +176,50 @@ function M.Init(c: any)
 				if not root or (root.Position - spinners[1][2].Position).Magnitude > 300 then return end
 				t += dt
 				for i, s in spinners do
-					if s[1]:GetAttribute("Spin") == "portal" then
+					local kind = s[1]:GetAttribute("Spin")
+					if kind == "portal" then
 						s[1]:PivotTo(s[2] * CFrame.Angles(t * 1.2, 0, 0)) -- WORLDS ring turns about its own axis
+					elseif kind == "portalZ" then
+						s[1]:PivotTo(s[2] * CFrame.Angles(0, 0, t * 1.2))
+					elseif kind == "y" then -- Blender station spinners (halo rings, gems)
+						s[1]:PivotTo(s[2] * CFrame.Angles(0, t * 0.9, 0))
+					elseif kind == "bob" then -- Blender station floaters (orbs, rocks, clouds)
+						s[1]:PivotTo(s[2] * CFrame.new(0, math.sin(t * 1.8 + i) * 0.45, 0))
 					else
 						s[1]:PivotTo(s[2] * CFrame.new(0, math.sin(t * 1.6 + i) * 0.35, 0) * CFrame.Angles(0, t * 0.6, 0))
 					end
+				end
+			end)
+		end
+		-- Robux prices / names flagged by the builder get the animated rainbow text
+		for _, d in lobby:GetDescendants() do
+			if d:IsA("TextLabel") and d:GetAttribute("Rainbow") then U.rainbow(d) end
+		end
+		-- edit-time-built billboard text sometimes never lays out (TextBounds stay 0) until its Text changes once:
+		-- nudge every lobby label so all signs render (seen on the egg cards)
+		task.delay(1, function()
+			for _, d in lobby:GetDescendants() do
+				if d:IsA("TextLabel") and d.Text ~= "" and d.TextBounds.X == 0 then
+					local t = d.Text
+					d.Text = t .. " "
+					task.defer(function() d.Text = t end)
+				end
+			end
+		end)
+		-- WORLDS portal: walking into it opens the Worlds menu (a brand-new player goes straight to Stage 1)
+		local portal = lobby:FindFirstChild("WorldsPortal")
+		local core = portal and portal:FindFirstChild("Core") :: BasePart?
+		if core then
+			local last = 0
+			core.Touched:Connect(function(hit)
+				local char = player.Character
+				if not char or not hit:IsDescendantOf(char) or os.clock() - last < 2.5 then return end
+				last = os.clock()
+				Sfx.Play("Teleport")
+				if (attr("Highest") or 1) <= 1 then
+					ctx.TeleportStage:FireServer(1)
+				else
+					Menus.Open("Stages")
 				end
 			end)
 		end

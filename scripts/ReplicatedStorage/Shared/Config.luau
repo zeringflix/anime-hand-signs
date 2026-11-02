@@ -177,7 +177,7 @@ for i, d in S do
 		Recommended = r,
 		Trophies = roundNice(3 * 1.55 ^ (i - 1)),
 		EnemyHp = hp,
-		EnemyDamage = 4 + i * 2,
+		EnemyDamage = 2 + i * 1.5, -- 5 enemies per (smaller) stage: lighter hits so a fresh player can clear Stage 1
 		XP = math.floor(2 + i * 1.5),
 	}
 end

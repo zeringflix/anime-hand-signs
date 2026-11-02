@@ -409,7 +409,7 @@ local function think(e: Enemy, now: number)
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if hrp and hum and hum.Health > 0 and playerStage(owner) == e.Stage then
 			local d = (hrp.Position - e.Root.Position).Magnitude
-			if d < (e.IsBoss and 60 or 38) then target, tdist = owner, d end
+			if d < (e.IsBoss and 34 or 24) then target, tdist = owner, d end -- 85-stud stages: only nearby enemies aggro
 		end
 	end
 	if not target then
@@ -487,7 +487,7 @@ local function think(e: Enemy, now: number)
 	if now >= e.NextAttack then
 		local st = Config.Stages[e.Stage]
 		if tdist <= reach then
-			e.NextAttack = now + (e.IsBoss and 1.6 or 1.4)
+			e.NextAttack = now + (e.IsBoss and 1.8 or 1.9)
 			e.Model:SetAttribute("AttackAt", workspace:GetServerTimeNow())
 			GameService.Remotes.Vfx:FireClient(target, "EnemyMelee", e.Model, st.Element)
 			task.delay(0.25, function()
