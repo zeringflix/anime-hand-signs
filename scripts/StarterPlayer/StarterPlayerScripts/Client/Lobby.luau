@@ -182,7 +182,11 @@ function M.Init(c: any)
 				if not root or (root.Position - spinners[1][2].Position).Magnitude > 300 then return end
 				t += dt
 				for i, s in spinners do
-					s[1]:PivotTo(s[2] * CFrame.new(0, math.sin(t * 1.6 + i) * 0.35, 0) * CFrame.Angles(0, t * 0.6, 0))
+					if s[1]:GetAttribute("Spin") == "portal" then
+						s[1]:PivotTo(s[2] * CFrame.Angles(t * 1.2, 0, 0)) -- WORLDS ring turns about its own axis
+					else
+						s[1]:PivotTo(s[2] * CFrame.new(0, math.sin(t * 1.6 + i) * 0.35, 0) * CFrame.Angles(0, t * 0.6, 0))
+					end
 				end
 			end)
 		end

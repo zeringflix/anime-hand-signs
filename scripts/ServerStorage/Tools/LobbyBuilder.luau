@@ -158,15 +158,15 @@ local function buildArena()
 		end
 	end
 	-- main path spawn -> portal, white edged
-	Blk(g, Vector3.new(HX * 2 - 4, 0.3, 16), 1, 0, 0, PAL.Path, merge(STUDS, {Name = "MainPath"}))
-	for _, z in {-8.5, 8.5} do Blk(g, Vector3.new(HX * 2 - 4, 0.35, 1), 1, z, 0, PAL.PathEdge) end
+	Blk(g, Vector3.new(HX * 2 - 4, 0.3, 24), 1, 0, 0, PAL.Path, merge(STUDS, {Name = "MainPath"}))
+	for _, z in {-12.5, 12.5} do Blk(g, Vector3.new(HX * 2 - 4, 0.35, 1), 1, z, 0, PAL.PathEdge) end
 	-- lime lawns flanking the path (with darker rims), wide patches around the portal plaza
 	local function lawn(x0: number, x1: number, z0: number, z1: number)
 		Blk(g, Vector3.new(x1 - x0, 0.32, z1 - z0), (x0 + x1) / 2, (z0 + z1) / 2, -0.02, PAL.LimeEdge)
 		Blk(g, Vector3.new(x1 - x0 - 1.6, 0.36, z1 - z0 - 1.6), (x0 + x1) / 2, (z0 + z1) / 2, 0, PAL.Lime, merge(STUDS, {Name = "Lawn"}))
 	end
-	lawn(-140, 90, -20, -9.5); lawn(-140, 90, 9.5, 20)
-	lawn(92, 138, -84, -9.5); lawn(92, 138, 9.5, 84)
+	lawn(-140, 90, -24, -13.5); lawn(-140, 90, 13.5, 24)
+	lawn(92, 138, -84, -13.5); lawn(92, 138, 13.5, 84)
 end
 
 local function buildCliffs()
@@ -213,31 +213,39 @@ local function buildSpawnAndPath()
 	local k = 0
 	for x = -118, 132, 16 do
 		k += 1
-		lantern(g, x, -11.5, k % 3 == 0)
-		lantern(g, x, 11.5, k % 3 == 0)
+		lantern(g, x, -15.5, k % 3 == 0)
+		lantern(g, x, 15.5, k % 3 == 0)
 	end
 end
 
 local function buildPortal()
 	local g = group("WorldsPortal")
 	local px = 143
-	for _, z in {-15, 15} do
-		Blk(g, Vector3.new(7, 2, 7), px, z, 0.3, PAL.Stone2)
-		Blk(g, Vector3.new(5, 30, 5), px, z, 2.3, PAL.Stone)
+	for _, z in {-18, 18} do
+		Blk(g, Vector3.new(8, 2, 8), px, z, 0.3, PAL.Stone2)
+		Blk(g, Vector3.new(6, 34, 6), px, z, 2.3, PAL.Stone)
 	end
-	Blk(g, Vector3.new(7, 4, 36), px, 0, 32.3, PAL.Stone)
-	Blk(g, Vector3.new(6, 1.5, 38), px, 0, 36.3, PAL.Stone2)
-	local header = Blk(g, Vector3.new(1, 3.4, 20), px - 3.6, 0, 32.6, PAL.Ink, {Name = "Header"})
+	Blk(g, Vector3.new(8, 5, 44), px, 0, 36.3, PAL.Stone)
+	Blk(g, Vector3.new(7, 1.5, 46), px, 0, 41.3, PAL.Stone2)
+	local header = Blk(g, Vector3.new(1, 4.4, 24), px - 4.1, 0, 36.6, PAL.Ink, {Name = "Header"})
 	local sg = Instance.new("SurfaceGui"); sg.Face = Enum.NormalId.Left; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud; sg.PixelsPerStud = 30; sg.LightInfluence = 0; sg.Parent = header
 	text(sg, "WORLDS", UDim2.fromScale(0.05, 0.08), UDim2.fromScale(0.9, 0.84), Color3.new(1, 1, 1), 3)
 	-- glowing ring (original: chakra-spiral rim of 20 blocks + translucent core). Walk through = Stage 1.
-	local c = W(px, 0, 15.5)
-	for i = 0, 31 do
-		local a = i * math.pi * 2 / 32
-		P({Size = Vector3.new(1.2, 1.3, 2.4), CFrame = CFrame.new(c) * CFrame.Angles(a, 0, 0) * CFrame.new(0, 0, 11), Color = i % 4 == 0 and PAL.PortalRim or PAL.Portal,
-			Material = Enum.Material.Neon, CanCollide = false, CastShadow = false, Parent = g})
+	local c = W(px, 0, 17.5)
+	local ringModel = group("Ring", g) -- spun client-side (Lobby module)
+	for i = 0, 39 do
+		local a = i * math.pi * 2 / 40
+		P({Size = Vector3.new(1.4, 1.6, 2.8), CFrame = CFrame.new(c) * CFrame.Angles(a, 0, 0) * CFrame.new(0, 0, 13.5), Color = i % 5 == 0 and PAL.PortalRim or PAL.Portal,
+			Material = Enum.Material.Neon, CanCollide = false, CastShadow = false, Parent = ringModel})
 	end
-	local core = P({Name = "Core", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 21, 21), CFrame = CFrame.new(c), Color = PAL.Portal,
+	for i = 0, 11 do -- inner spiral sparks
+		local a = i * math.pi * 2 / 12
+		P({Size = Vector3.new(0.8, 0.9, 0.9), CFrame = CFrame.new(c) * CFrame.Angles(a, 0, 0) * CFrame.new(0, 0, 5 + (i % 3) * 2.4), Color = PAL.PortalRim,
+			Material = Enum.Material.Neon, CanCollide = false, CastShadow = false, Parent = ringModel})
+	end
+	ringModel.WorldPivot = CFrame.new(c)
+	ringModel:SetAttribute("Spin", "portal")
+	local core = P({Name = "Core", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 26, 26), CFrame = CFrame.new(c), Color = PAL.Portal,
 		Material = Enum.Material.Neon, Transparency = 0.3, CanCollide = false, CastShadow = false, Parent = g})
 	local l = Instance.new("PointLight"); l.Color = PAL.Portal; l.Range = 26; l.Brightness = 1.6; l.Parent = core
 	local step = Blk(g, Vector3.new(6, 0.4, 16), px - 6, 0, 0.3, PAL.Stone2, {Name = "Threshold"})
@@ -633,7 +641,7 @@ local function buildStations()
 		local zone = P({Name = "Zone", Size = Vector3.new(16, 12, 16), CFrame = CFrame.new(W(x, z, y0 + 6)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
 		zone:SetAttribute("StationIndex", i)
 		if st.Mult >= 25 then beam(m, x + 6.5, z - 6.5, y0 + 3, st.Color) end
-		local bb = billboard(anchor(m, x, z, y0 + 16), Vector2.new(12, 4.6), 0, 130, "Card")
+		local bb = billboard(anchor(m, x, z, y0 + 15), Vector2.new(17, 6.6), 0, 170, "Card")
 		text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.52), st.Color, 4, "Mult")
 		if st.Pass then
 			icon(bb, "Robux", UDim2.fromScale(0.26, 0.54), UDim2.fromScale(0.16, 0.44))
@@ -652,31 +660,31 @@ end
 local function buildShowcase()
 	local g = group("SignShowcase")
 	g:SetAttribute("Note", "Pad colours/text are per-player, set by the client Lobby module from server state.")
-	local x0, dx = -112, 14
-	Blk(g, Vector3.new(7 * dx + 6, 1, 13), x0 + 3 * dx, 36, -0.4, PAL.Stone, {Name = "FrontPlatform"})
-	Blk(g, Vector3.new(7 * dx + 6, 6.4, 13), x0 + 3 * dx, 50, -0.4, PAL.Stone2, {Name = "BackPlatform"}) -- raised tier like the reference
-	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, 29.6, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
+	local x0, dx = -118, 17
+	Blk(g, Vector3.new(7 * dx + 6, 1, 16), x0 + 3 * dx, 34, -0.4, PAL.Stone, {Name = "FrontPlatform"})
+	Blk(g, Vector3.new(7 * dx + 6, 9.4, 16), x0 + 3 * dx, 56, -0.4, PAL.Stone2, {Name = "BackPlatform"}) -- raised tier like the reference
+	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, 25.6, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
 	for i, id in Config.HandSignOrder do
 		local s = Config.HandSigns[id]
 		local back = i > 7
 		local k = back and i - 8 or i - 1
-		local x, z = x0 + k * dx, back and 50 or 36
-		local top = back and 6 or 0.6
+		local x, z = x0 + k * dx, back and 56 or 34
+		local top = back and 9 or 0.6
 		local m = group("Pad_" .. id, g)
 		m:SetAttribute("SignId", id)
-		local pad = Blk(m, Vector3.new(8, 0.5, 8), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
+		local pad = Blk(m, Vector3.new(11, 0.5, 11), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
 		prompt(pad, "Buy", s.Name, {LobbyAction = "Sign", SignId = id})
 		-- floating transparent hand-sign art only (no tile, frame or backing), like the reference's floating eyes
 		local iconId = Assets.SignIcons and Assets.SignIcons[id]
-		local art = billboard(anchor(m, x, z, top + 11, "ArtAnchor"), Vector2.new(7.5, 7.5), 0, 140, "Emblem")
+		local art = billboard(anchor(m, x, z, top + 14.5, "ArtAnchor"), Vector2.new(10, 10), 0, 160, "Emblem")
 		if iconId then
 			local img = Instance.new("ImageLabel"); img.Name = "Art"; img.BackgroundTransparency = 1; img.Image = iconId
 			img.ScaleType = Enum.ScaleType.Fit; img.Size = UDim2.fromScale(1, 1); img.Parent = art
 		else
 			text(art, "?", UDim2.fromScale(0.2, 0.1), UDim2.fromScale(0.6, 0.8), Color3.new(1, 1, 1), 5) -- no approved art yet
 		end
-		local a = anchor(m, x, z, top + 5.2)
-		local bb = billboard(a, Vector2.new(8.4, 4.6), 0, 75, "Card")
+		local a = anchor(m, x, z, top + 6.2)
+		local bb = billboard(a, Vector2.new(13, 7), 0, 120, "Card")
 		text(bb, s.Name, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.32), s.Color:Lerp(Color3.new(1, 1, 1), 0.45), 3, "SignName")
 		text(bb, "x" .. Config.Format(s.Multiplier) .. " Hand Signs", UDim2.fromScale(0.05, 0.32), UDim2.fromScale(0.9, 0.24), C(255, 214, 90), 2, "Mult")
 		text(bb, "", UDim2.fromScale(0, 0.56), UDim2.fromScale(1, 0.18), Color3.new(1, 1, 1), 2, "Req")
@@ -715,7 +723,7 @@ local function buildEggs()
 		end
 		local l = Instance.new("PointLight"); l.Color = glowCol; l.Range = 9; l.Brightness = 0.7; l.Shadows = false; l.Parent = hit
 		if i >= n - 1 then beam(m, x, z + 4.5, 3, egg.Color) end
-		local bb = billboard(anchor(m, x, z, top + 16), Vector2.new(9, 4.2), 0, 90, "Card")
+		local bb = billboard(anchor(m, x, z, top + 17), Vector2.new(14, 6.4), 0, 130, "Card")
 		text(bb, "STAGE " .. egg.Stage, UDim2.fromScale(0.1, 0), UDim2.fromScale(0.8, 0.26), Color3.new(1, 1, 1), 2)
 		text(bb, string.upper(egg.Name), UDim2.fromScale(0, 0.26), UDim2.fromScale(1, 0.38), egg.Color:Lerp(Color3.new(1, 1, 1), 0.35), 3)
 		icon(bb, "Trophy", UDim2.fromScale(0.22, 0.66), UDim2.fromScale(0.16, 0.32))
@@ -726,7 +734,7 @@ local function buildEggs()
 		local m = group(name, g)
 		m:SetAttribute("Placeholder", "Visual only — backend not built; no prompt or remote is exposed.")
 		build(m)
-		local bb = billboard(anchor(m, x, 100, 13), Vector2.new(10, 3.2), 0, 90, "Card")
+		local bb = billboard(anchor(m, x, 100, 15), Vector2.new(17, 5.4), 0, 150, "Card")
 		text(bb, title, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.58), C(255, 150, 230), 4)
 		text(bb, "COMING SOON", UDim2.fromScale(0.15, 0.6), UDim2.fromScale(0.7, 0.38), C(255, 120, 120), 3)
 	end

@@ -3,6 +3,7 @@
 -- Pure view: Main wires data and input into the elements returned here.
 local U = require(script.Parent.UIKit)
 local Assets = require(game.ReplicatedStorage.Shared.Assets)
+local SC = require(game.ReplicatedStorage.Shared.SystemsConfig)
 local C = Color3.fromRGB
 local function img(props: {[string]: any}): ImageLabel
 	local i = U.new("ImageLabel", {BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Image = Assets.Icon(props.Icon)})
@@ -81,7 +82,7 @@ function H.Build(gui: ScreenGui)
 	E.PromoPrice = U.text({Text = "15 MINUTES", Size = UDim2.new(1, -16, 0.32, 0), Position = UDim2.new(0, 8, 0.6, 0), TextColor3 = C(130, 255, 110), Stroke = 3, Parent = E.Promo})
 
 	---------------------------------------------------------------- top centre: event / boss bar + objective
-	local boss = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 10), Size = UDim2.fromOffset(600, 74), BackgroundTransparency = 1, Visible = false, Parent = gui})
+	local boss = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 10), Size = UDim2.fromOffset(460, 60), BackgroundTransparency = 1, Visible = false, Parent = gui})
 	E.BossName = U.text({Text = "BOSS", Size = UDim2.fromOffset(300, 26), TextColor3 = C(255, 150, 40), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3, Parent = boss})
 	local back = U.new("Frame", {Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = C(60, 55, 70), Parent = boss})
 	U.corner(21).Parent = back
@@ -92,7 +93,8 @@ function H.Build(gui: ScreenGui)
 	E.BossHp = U.text({Text = "", Size = UDim2.new(1, -20, 1, -8), Position = UDim2.fromOffset(10, 4), Stroke = 3, Parent = back})
 	E.Boss = boss
 
-	local banner = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 92), Size = UDim2.fromOffset(640, 46), BackgroundColor3 = C(15, 25, 45), BackgroundTransparency = 0.5, BorderSizePixel = 0, Parent = gui})
+	local banner = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 92), Size = UDim2.fromOffset(640, 46), BackgroundColor3 = C(15, 25, 45), BackgroundTransparency = 0.5, BorderSizePixel = 0, Visible = false, Parent = gui})
+	E.BannerFrame = banner
 	U.new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.15, 0), NumberSequenceKeypoint.new(0.85, 0), NumberSequenceKeypoint.new(1, 1)}), Parent = banner})
 	E.Banner = U.text({Text = "", Size = UDim2.new(1, -40, 1, -8), Position = UDim2.fromOffset(20, 4), Stroke = 3, Parent = banner})
 
@@ -158,11 +160,12 @@ function H.Build(gui: ScreenGui)
 
 	-- auto clickers (left of the ability cluster)
 	local ac = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(160, 240), BackgroundTransparency = 1, Parent = br})
-	U.text({Text = "OP Auto Clicker", Size = UDim2.fromOffset(160, 24), TextColor3 = C(255, 220, 60), Stroke = 2.5, Parent = ac})
+	local opTitle = U.text({Text = "OP Auto Clicker", Size = UDim2.fromOffset(160, 24), TextColor3 = C(255, 220, 60), Stroke = 2.5, Parent = ac})
 	local op, opL = U.button({Text = "PASS", Color = C(255, 255, 255), Size = UDim2.fromOffset(150, 70), Position = UDim2.fromOffset(5, 26), Radius = 12, StrokeT = 4, Parent = ac})
 	op:FindFirstChildOfClass("UIGradient"):Destroy()
 	U.new("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 120, 120)), ColorSequenceKeypoint.new(0.33, C(255, 230, 120)), ColorSequenceKeypoint.new(0.66, C(120, 255, 160)), ColorSequenceKeypoint.new(1, C(120, 170, 255))}), Rotation = 20, Parent = op})
 	E.OPAuto, E.OPAutoLabel = op, opL
+	if SC.GamePasses.AutoClicker.Id == 0 then op.Visible = false; opTitle.Visible = false end
 	U.text({Text = "FREE Auto Clicker", Position = UDim2.fromOffset(0, 104), Size = UDim2.fromOffset(160, 24), TextColor3 = C(120, 255, 110), Stroke = 2.5, Parent = ac})
 	local fr, frL = U.button({Text = "CLAIM", Color = C(90, 90, 105), Size = UDim2.fromOffset(150, 70), Position = UDim2.fromOffset(5, 130), Radius = 12, StrokeT = 4, Parent = ac})
 	local barBack = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -20, 0, 8), BackgroundColor3 = C(40, 40, 50), ZIndex = 3, Parent = fr})

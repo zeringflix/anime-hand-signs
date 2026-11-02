@@ -459,15 +459,20 @@ task.spawn(function()
 		local highest = player:GetAttribute("Highest") or 1
 		local serverNow = os.time() + serverOffset
 		local pendingPad = p and p.PendingPads and p.PendingPads[tostring(inStage)]
-		if pendingPad then E.Banner.Text = "Stage cleared! Step on the Trophy pad!"
+		-- objective banner only when it tells the player something new (no tutorial spam in the lobby / late game)
+		local inLobby = player:GetAttribute("InLobby") == true
+		if inLobby then E.Banner.Text = ""
+		elseif pendingPad then E.Banner.Text = "Stage cleared! Step on the Trophy pad!"
 		elseif inStage < highest then E.Banner.Text = "Head through the gate to Stage " .. highest .. "!"
-		else E.Banner.Text = "Defeat the enemies! Click to attack!" end
+		elseif highest <= 2 then E.Banner.Text = "Defeat the enemies! Click to attack!"
+		else E.Banner.Text = "" end
+		if E.BannerFrame then E.BannerFrame.Visible = E.Banner.Text ~= "" end
 
 		local boss
 		for _, m in enemiesFolder:GetChildren() do
 			if m:GetAttribute("Boss") and m:GetAttribute("Stage") == inStage and (m:GetAttribute("Hp") or 0) > 0 then boss = m break end
 		end
-		E.Boss.Visible = boss ~= nil
+		E.Boss.Visible = boss ~= nil and not inLobby
 		if boss then
 			local hp, mx = boss:GetAttribute("Hp") or 0, boss:GetAttribute("MaxHp") or 1
 			E.BossName.Text = string.upper(boss:GetAttribute("EnemyName") or "Boss")
@@ -498,15 +503,15 @@ task.spawn(function()
 		local readyIn = (p and p.FreeAutoReady or 0) - serverNow
 		if activeLeft > 0 then
 			E.FreeAutoLabel.Text = clock(activeLeft)
-			E.FreeAuto.BackgroundColor3 = C(70, 200, 90)
+			U.recolor(E.FreeAuto, U.GREEN)
 			E.FreeAutoFill.Size = UDim2.fromScale(activeLeft / SC.FreeAuto.ActiveSeconds, 1)
 		elseif readyIn > 0 then
 			E.FreeAutoLabel.Text = clock(readyIn)
-			E.FreeAuto.BackgroundColor3 = C(90, 90, 105)
+			U.recolor(E.FreeAuto, U.GREY)
 			E.FreeAutoFill.Size = UDim2.fromScale(1 - readyIn / SC.FreeAuto.CooldownSeconds, 1)
 		else
 			E.FreeAutoLabel.Text = "CLAIM"
-			E.FreeAuto.BackgroundColor3 = C(70, 200, 90)
+			U.recolor(E.FreeAuto, U.GREEN)
 			E.FreeAutoFill.Size = UDim2.fromScale(1, 1)
 		end
 	end
