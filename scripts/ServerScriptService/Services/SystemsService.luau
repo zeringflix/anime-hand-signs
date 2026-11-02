@@ -183,13 +183,11 @@ function A.DeletePet(p, data, uid)
 	return {ok = true}
 end
 
--- showcase / menu: buy a hand sign with Trophies (stage requirement), then equip it
+-- showcase / menu: buy a hand sign with Trophies ONLY (owner 2026-11-02: no stage / hand-sign requirement), then equip it
 function A.BuySign(p, data, id)
 	local s = typeof(id) == "string" and Config.HandSigns[id]
 	if not s then return {ok = false} end
 	if data.UnlockedHandSigns[id] then return {ok = true, owned = true} end
-	if data.HighestUnlockedStage < s.Stage then return {ok = false, msg = "Reach Stage " .. s.Stage .. " first"} end
-	if data.HandSigns < s.Power then return {ok = false, msg = "Need " .. Config.Format(s.Power) .. " Hand Signs"} end
 	if not spend(data, s.Price) then return {ok = false, msg = "Need " .. Config.Format(s.Price) .. " Trophies"} end
 	data.UnlockedHandSigns[id] = true
 	data.EquippedHandSign = id

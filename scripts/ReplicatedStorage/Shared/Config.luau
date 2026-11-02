@@ -12,7 +12,7 @@ Config.Economy = {
 	HitsPerEnemyAtRecommended = 8,
 	BossHpMult = 6,
 	EliteHpMult = 2.5,
-	KillsToClear = 5,             -- "5 LEFT" counter
+	KillsToClear = 5,             -- regular enemies per stage (owner 2026-11-02: 5 enemies, boss every other stage)
 	OfflineRatePerMinute = 0.5,   -- fraction of 1 train/sec equivalent
 	OfflineMaxMinutes = 8 * 60,
 }
@@ -138,7 +138,16 @@ local S = {
 export type Stage = {Index: number, Name: string, Region: number, Enemies: {string}, Boss: string, Ground: Color3, Path: Color3, Cliff: Color3,
 	Leaf: Color3, Trunk: Color3, Gate: Color3, Prop: string, Element: string, Recommended: number, Trophies: number, EnemyHp: number, EnemyDamage: number, XP: number}
 Config.StageCount = #S
-Config.StageLength = 170
+Config.StageLength = 85 -- owner 2026-11-02: stages were way too big (was 170)
+Config.WalkSpeed = 28   -- owner 2026-11-02: 1.75x the Roblox default (16)
+-- a boss guards every other stage (even stages) and always the final stage
+function Config.HasBoss(stage: number): boolean
+	return stage % 2 == 0 or stage == #S
+end
+-- kills needed to open the gate: the 5 regular enemies (+ the boss on boss stages)
+function Config.KillsToClear(stage: number): number
+	return Config.Economy.KillsToClear + (Config.HasBoss(stage) and 1 or 0)
+end
 Config.Stages = {} :: {Stage}
 Config.RegionNames = {"Beginner Shinobi Grounds","Elemental Wilderness","Cursed Lands","Warrior Territories","Elemental Mastery","Advanced Shinobi Realms","Legendary Battlegrounds","Celestial Path","Void and Six Paths","Final Divine Ascension"}
 

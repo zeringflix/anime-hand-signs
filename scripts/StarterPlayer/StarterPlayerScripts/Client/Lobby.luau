@@ -34,8 +34,7 @@ end
 local function stateOf(id: string): string
 	local s = Config.HandSigns[id]
 	if owns(id) then return (attr("Equipped") or "Tiger") == id and "Equipped" or "Owned" end
-	local ok = (attr("Highest") or 1) >= s.Stage and (attr("HandSigns") or 0) >= s.Power and (attr("Trophies") or 0) >= s.Price
-	return ok and "Ready" or "Locked"
+	return (attr("Trophies") or 0) >= s.Price and "Ready" or "Locked" -- trophies only (owner 2026-11-02)
 end
 
 local lastSig: {[Instance]: string} = {}

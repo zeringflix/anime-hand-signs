@@ -219,7 +219,15 @@ function GameService.SetReach(player: Player, stage: number)
 	player:SetAttribute("GateReach", stage) -- client colours the gate walls from this; the guard below enforces it
 end
 function GameService.RemainingFor(data: any, stage: number): number
-	return math.max(0, Config.Economy.KillsToClear - (data.StageKills[tostring(stage)] or 0))
+	return math.max(0, Config.KillsToClear(stage) - (data.StageKills[tostring(stage)] or 0))
+end
+-- a fresh enemy set was spawned for this player's stage (EnemyService): the kill counter starts again, so the gate
+-- opens exactly when every enemy of the current set is dead (enemies no longer respawn inside a set)
+function GameService.ResetStageKills(player: Player, stage: number)
+	local data = DataService.Get(player)
+	if not data then return end
+	data.StageKills[tostring(stage)] = 0
+	GameService.Refresh(player)
 end
 
 function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
@@ -232,7 +240,7 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 	GameService.AddHandSigns(player, math.max(1, st.Recommended * (isBoss and 0.02 or 0.005)) * GameService.RebirthMultiplier(data))
 	local key = tostring(stage)
 	data.StageKills[key] = (data.StageKills[key] or 0) + 1
-	if data.StageKills[key] >= Config.Economy.KillsToClear then
+	if data.StageKills[key] >= Config.KillsToClear(stage) then
 		data.StageKills[key] = 0
 		local first = not data.CompletedStages[key]
 		data.CompletedStages[key] = true
@@ -413,7 +421,7 @@ task.spawn(function()
 					root.CFrame = GameService.StageSpawnCFrame(data.HighestUnlockedStage)
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
-				local inLobby = x < -Config.StageLength / 2
+				local inLobby = x < -Config.StageLength / 2 - 12 -- the lobby arena sits well west of Stage 1's start wall
 				player:SetAttribute("InLobby", inLobby)
 				if inLobby then GameService.SetReach(player, 1) end
 				-- closed gate: stand in front of it until this stage's enemies are dead
@@ -427,7 +435,7 @@ task.spawn(function()
 					GameService.Notify(player, "Toast", "Defeat the enemies to open the gate!")
 				end
 				local okZ, zm = pcall(GameService.StationMultiplier, player, data, root.Position)
-				zm = (okZ and x < -Config.StageLength / 2) and zm or 1
+				zm = (okZ and inLobby) and zm or 1
 				if player:GetAttribute("ZoneMult") ~= zm then player:SetAttribute("ZoneMult", zm) end
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)
 				if player:GetAttribute("InStage") ~= stageIdx then
@@ -471,12 +479,14 @@ function GameService.Start()
 		local b = Instance.new("IntValue"); b.Name = "Rebirths"; b.Parent = ls
 		local c = Instance.new("IntValue"); c.Name = "Stage"; c.Parent = ls
 		ls.Parent = player
-		-- course shrank from 50 to 30 stages: clamp old saves
+		-- clamp old saves to the current course
 		data.HighestUnlockedStage = math.clamp(data.HighestUnlockedStage, 1, Config.StageCount)
 		data.CurrentStage = math.clamp(data.CurrentStage, 1, data.HighestUnlockedStage)
 		GameService.CheckUnlocks(player)
 		GameService.Refresh(player)
 		local function spawnAt(char: Model)
+			local hum = char:WaitForChild("Humanoid", 5) :: Humanoid?
+			if hum then hum.WalkSpeed = Config.WalkSpeed end -- 1.75x walk speed (owner request)
 			local root = char:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 			if root then
 				task.wait()

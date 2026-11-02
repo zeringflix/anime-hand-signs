@@ -154,8 +154,7 @@ local TIER_COLOR = {C(160, 160, 172), C(160, 160, 172), C(64, 160, 240), C(64, 1
 local function signState(id: string, unlocked: {[string]: boolean}): string
 	local s = Config.HandSigns[id]
 	if unlocked[id] then return (attr("Equipped") or "Tiger") == id and "Equipped" or "Owned" end
-	local ok = (attr("Highest") or 1) >= s.Stage and (attr("HandSigns") or 0) >= s.Power
-	return ok and "Buy" or "Locked"
+	return (attr("Trophies") or 0) >= s.Price and "Buy" or "Locked" -- trophies are the only requirement
 end
 local function signButton(parent: Instance, id: string, st: string, size: UDim2, pos: UDim2)
 	local s = Config.HandSigns[id]
@@ -163,7 +162,7 @@ local function signButton(parent: Instance, id: string, st: string, size: UDim2,
 	if st == "Equipped" then text, col = "EQUIPPED", U.GREEN
 	elseif st == "Owned" then text, col = "EQUIP", U.GREEN
 	elseif st == "Buy" then text, col = "BUY \u{1F3C6}" .. fmt(s.Price), U.ORANGE
-	else text, col = "\u{1F512} STAGE " .. s.Stage, U.GREY end
+	else text, col = "\u{1F3C6} " .. fmt(s.Price), U.GREY end
 	local b, bl = U.button({Text = text, Color = col, Size = size, Position = pos, AnchorPoint = Vector2.new(0.5, 1), Radius = 6, StrokeT = 3, Parent = parent})
 	studs(b, 0.35, 18)
 	b.MouseButton1Click:Connect(function()
@@ -172,7 +171,7 @@ local function signButton(parent: Instance, id: string, st: string, size: UDim2,
 			local res = act("BuySign", id)
 			if res and res.ok and res.bought then ctx.Toast(string.upper(s.Name) .. " UNLOCKED!", C(120, 255, 120)) end
 		elseif st == "Locked" then
-			ctx.Toast("Needs Stage " .. s.Stage .. " + " .. fmt(s.Power) .. " Hand Signs + " .. fmt(s.Price) .. " Trophies", C(255, 120, 120))
+			ctx.Toast("Need " .. fmt(s.Price) .. " Trophies", C(255, 120, 120))
 		end
 	end)
 	return b, bl
@@ -219,11 +218,8 @@ local function openDetail(id: string)
 		local dsc = label(row, j.Desc, UDim2.fromScale(0.18, 0.5), UDim2.fromScale(0.8, 0.44), C(225, 225, 240), Enum.TextXAlignment.Left, 1.5); dsc.ZIndex = 22
 	end
 	if st == "Buy" or st == "Locked" then
-		local stageOk, powerOk, priceOk = (attr("Highest") or 1) >= s.Stage, (attr("HandSigns") or 0) >= s.Power, (attr("Trophies") or 0) >= s.Price
-		local function col(ok: boolean) return ok and C(130, 255, 130) or C(255, 120, 120) end
-		L("Stage " .. s.Stage, UDim2.fromScale(0.43, 0.71), UDim2.fromScale(0.17, 0.07), col(stageOk), Enum.TextXAlignment.Left, 2)
-		L(fmt(s.Power) .. " Hand Signs", UDim2.fromScale(0.6, 0.71), UDim2.fromScale(0.2, 0.07), col(powerOk), Enum.TextXAlignment.Left, 2)
-		L(fmt(s.Price) .. " \u{1F3C6}", UDim2.fromScale(0.82, 0.71), UDim2.fromScale(0.15, 0.07), col(priceOk), Enum.TextXAlignment.Left, 2)
+		local priceOk = (attr("Trophies") or 0) >= s.Price
+		L("Price: " .. fmt(s.Price) .. " Trophies", UDim2.fromScale(0.43, 0.71), UDim2.fromScale(0.54, 0.07), priceOk and C(130, 255, 130) or C(255, 120, 120), Enum.TextXAlignment.Left, 2)
 	end
 	local b = signButton(d, id, st, UDim2.fromScale(0.4, 0.14), UDim2.fromScale(0.7, 0.95))
 	b.ZIndex = 22
