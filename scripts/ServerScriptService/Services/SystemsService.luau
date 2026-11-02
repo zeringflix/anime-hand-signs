@@ -27,7 +27,10 @@ local function petMultiplier(data: any): number
 	for _, uid in data.EquippedPets do
 		local rec = data.Pets[uid]
 		local def = rec and SC.Pets[rec.Pet]
-		if def then sum += def.Boost end
+		if def then
+			local tier = rec.Tier and SC.FuseTiers[rec.Tier]
+			sum += def.Boost * (tier and tier.Mult or 1)
+		end
 	end
 	return 1 + sum * (1 + 0.1 * GameService.UpgradeLevel(data, "PetBoost"))
 end
@@ -50,8 +53,10 @@ GameService.MultiplierProviders.Passes = function(p, data)
 	if (data.BoostUntil or 0) > os.time() then m *= 2 end
 	return m
 end
-GameService.TrophyBonus = function(p, _data)
+SystemsService.HasPass = hasPass
+GameService.TrophyBonus = function(p, data)
 	local m = 1
+	if (data and data.TrophyBoostUntil or 0) > os.time() then m *= 2 end
 	if hasPass(p, "DoubleTrophies") then m *= 2 end
 	if hasPass(p, "VIP") then m *= 1.25 end
 	return m
@@ -70,7 +75,9 @@ local function publishLooks(p: Player, data: any)
 	end
 	p:SetAttribute("PetsShown", table.concat(shown, ","))
 	p:SetAttribute("Aura", (data.Auras[data.EquippedAura] and data.EquippedAura) or "")
+	p:SetAttribute("KyubiCoins", data.KyubiCoins or 0)
 end
+SystemsService.Changed = function(p) local d = DataService.Get(p); if d then publishLooks(p, d) end; GameService.Refresh(p) end
 
 GameService.SnapshotExtras[#GameService.SnapshotExtras + 1] = function(p, data, snap)
 	snap.PetSlots = petSlots(p, data)
@@ -87,6 +94,8 @@ GameService.SnapshotExtras[#GameService.SnapshotExtras + 1] = function(p, data, 
 	snap.RebirthCost = SC.RebirthCost(data.Rebirths)
 	snap.FreeAutoUntil = freeAutoUntil[p] or 0
 	snap.FreeAutoReady = freeAutoReady[p] or 0
+	snap.KyubiCoins = data.KyubiCoins or 0
+	snap.TrophyBoostUntil = data.TrophyBoostUntil or 0
 end
 
 local function changed(p: Player)
@@ -173,9 +182,77 @@ function A.DeletePet(p, data, uid)
 	return {ok = true}
 end
 
+-- showcase / menu: buy a hand sign with Trophies (stage requirement), then equip it
+function A.BuySign(p, data, id)
+	local s = typeof(id) == "string" and Config.HandSigns[id]
+	if not s then return {ok = false} end
+	if data.UnlockedHandSigns[id] then return {ok = true, owned = true} end
+	if data.HighestUnlockedStage < s.Stage then return {ok = false, msg = "Reach Stage " .. s.Stage .. " first"} end
+	if data.HandSigns < s.Power then return {ok = false, msg = "Need " .. Config.Format(s.Power) .. " Hand Signs"} end
+	if not spend(data, s.Price) then return {ok = false, msg = "Need " .. Config.Format(s.Price) .. " Trophies"} end
+	data.UnlockedHandSigns[id] = true
+	data.EquippedHandSign = id
+	GameService.Notify(p, "SignUnlocked", id)
+	for _, cb in GameService.OnEquipChanged do task.spawn(cb, p, id) end
+	changed(p)
+	DataService.SaveNow(p)
+	return {ok = true, bought = true}
+end
+
+-- boss shop (Kyubi Coins from the lobby raid)
+function A.BossShop(p, data, id)
+	local item
+	for _, it in SC.BossShop do if it.Id == id then item = it end end
+	if not item then return {ok = false} end
+	if (data.KyubiCoins or 0) < item.Cost then return {ok = false, msg = "Need " .. item.Cost .. " Kyubi Coins"} end
+	if item.Aura and data.Auras[item.Aura] then return {ok = false, msg = "Already owned"} end
+	if item.Pet and countPets(data) >= SC.MaxPetsOwned then return {ok = false, msg = "Pet inventory full"} end
+	data.KyubiCoins -= item.Cost
+	if item.Pet then
+		local uid = "p" .. data.NextPetId
+		data.NextPetId += 1
+		data.Pets[uid] = {Pet = item.Pet, Locked = false}
+		if #data.EquippedPets < petSlots(p, data) then table.insert(data.EquippedPets, uid) end
+	elseif item.Aura then
+		data.Auras[item.Aura] = true
+		data.EquippedAura = item.Aura
+	elseif item.Boost then
+		data.BoostUntil = math.max(os.time(), data.BoostUntil or 0) + item.Boost
+	elseif item.TrophyBoost then
+		data.TrophyBoostUntil = math.max(os.time(), data.TrophyBoostUntil or 0) + item.TrophyBoost
+	end
+	changed(p)
+	return {ok = true, item = item.Id}
+end
+
+-- fuse machine: FuseCount copies of the same pet + tier -> one pet of the next tier
+function A.Fuse(p, data, petId, tier)
+	if typeof(petId) ~= "string" or not SC.Pets[petId] then return {ok = false} end
+	tier = typeof(tier) == "number" and math.floor(tier) or 0
+	if tier < 0 or tier >= #SC.FuseTiers then return {ok = false, msg = "Max tier"} end
+	local picks = {}
+	for uid, rec in data.Pets do
+		if rec.Pet == petId and (rec.Tier or 0) == tier and not rec.Locked then table.insert(picks, uid) end
+		if #picks >= SC.FuseCount then break end
+	end
+	if #picks < SC.FuseCount then return {ok = false, msg = "Need " .. SC.FuseCount .. " unlocked copies"} end
+	for _, uid in picks do
+		data.Pets[uid] = nil
+		local i = table.find(data.EquippedPets, uid)
+		if i then table.remove(data.EquippedPets, i) end
+	end
+	local uid = "p" .. data.NextPetId
+	data.NextPetId += 1
+	data.Pets[uid] = {Pet = petId, Locked = false, Tier = tier + 1}
+	if #data.EquippedPets < petSlots(p, data) then table.insert(data.EquippedPets, uid) end
+	changed(p)
+	return {ok = true, uid = uid, tier = tier + 1}
+end
+
 function A.BuyAura(p, data, id)
 	local a = typeof(id) == "string" and SC.Auras[id]
 	if not a then return {ok = false} end
+	if SC.ShopOnlyAuras[id] and not data.Auras[id] then return {ok = false, msg = "Buy it in the Boss Shop"} end
 	if data.Auras[id] then -- already owned: toggle equip
 		data.EquippedAura = data.EquippedAura == id and "" or id
 		changed(p)
@@ -281,6 +358,17 @@ function A.FreeAuto(p, _data)
 	if now < (freeAutoReady[p] or 0) then return {ok = false, msg = "Free Auto Clicker recharging"} end
 	freeAutoUntil[p] = now + SC.FreeAuto.ActiveSeconds
 	freeAutoReady[p] = now + SC.FreeAuto.ActiveSeconds + SC.FreeAuto.CooldownSeconds
+	changed(p)
+	return {ok = true}
+end
+
+-- "DON'T LEAVE YET!" popup: x2 Hand Signs (15 min) + 3 levels, once per 20h
+function A.ClaimStayBonus(p, data)
+	local now = os.time()
+	if now - (data.LastLeaveBonus or 0) < 20 * 3600 then return {ok = false, msg = "Already claimed today"} end
+	data.LastLeaveBonus = now
+	data.BoostUntil = math.max(now, data.BoostUntil or 0) + 15 * 60
+	for _ = 1, 3 do GameService.AddXP(p, Config.XPForLevel(data.Level) - data.XP) end
 	changed(p)
 	return {ok = true}
 end

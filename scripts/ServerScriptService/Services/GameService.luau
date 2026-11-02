@@ -55,6 +55,7 @@ function GameService.TrainingMultiplier(player: Player, data: any): number
 	local sign = Config.HandSigns[data.EquippedHandSign] or Config.HandSigns.Tiger
 	local m = sign.Multiplier
 	for _, f in GameService.MultiplierProviders do m *= f(player, data) end
+	m *= (player:GetAttribute("ZoneMult") or 1) -- lobby training station (set server-side by LobbyService)
 	return m
 end
 function GameService.RebirthMultiplier(data: any): number
@@ -170,10 +171,11 @@ GameService.Remotes.Train.OnServerEvent:Connect(function(player: Player, count: 
 end)
 
 ---------------------------------------------------------------- hand signs
+-- signs are bought with Trophies at the showcase (SystemsService BuySign); only free signs auto-unlock
 function GameService.CanUnlock(data: any, id: string): boolean
 	local s = Config.HandSigns[id]
 	if not s then return false end
-	return data.HighestUnlockedStage >= s.Stage and data.HandSigns >= s.Power
+	return (s.Price or 0) <= 0 and data.HighestUnlockedStage >= s.Stage
 end
 
 function GameService.CheckUnlocks(player: Player)
@@ -248,7 +250,18 @@ function GameService.ClaimPad(player: Player, stage: number)
 	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt})
 end
 
+function GameService.LobbySpawnCFrame(): CFrame?
+	local lobby = workspace:FindFirstChild("Lobby")
+	local sp = lobby and lobby:FindFirstChild("LobbySpawn") :: BasePart?
+	return sp and (sp.CFrame + Vector3.new(0, 4, 0)) or nil
+end
+
 function GameService.StageSpawnCFrame(stage: number): CFrame
+	if stage <= 0 then
+		local l = GameService.LobbySpawnCFrame()
+		if l then return l end
+		stage = 1
+	end
 	local folder = workspace:FindFirstChild("StageCourse")
 	local st = folder and folder:FindFirstChild(string.format("Stage%02d", stage))
 	local spawnPart = st and st:FindFirstChild("Spawn")
@@ -262,8 +275,8 @@ GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player,
 	local data = DataService.Get(player)
 	if not data then return end
 	stage = math.floor(stage)
-	if stage < 1 or stage > data.HighestUnlockedStage then return end
-	data.CurrentStage = stage
+	if stage < 0 or stage > data.HighestUnlockedStage then return end -- 0 = lobby
+	if stage > 0 then data.CurrentStage = stage end
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then root.CFrame = GameService.StageSpawnCFrame(stage) end
@@ -284,6 +297,7 @@ task.spawn(function()
 					root.CFrame = GameService.StageSpawnCFrame(data.HighestUnlockedStage)
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
+				player:SetAttribute("InLobby", x < -Config.StageLength / 2)
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)
 				if player:GetAttribute("InStage") ~= stageIdx then
 					player:SetAttribute("InStage", stageIdx)
@@ -304,6 +318,9 @@ function GameService.Start()
 		bf.OnInvoke = function(player: Player, t: any)
 			local data = DataService.Get(player)
 			if not data then return "no data" end
+			-- QA grants must never persist: flag this session's profile as memory-only
+			local prof = DataService.Profiles[player]
+			if prof then prof.NoPersist = true end
 			if t.Stage then data.HighestUnlockedStage = math.clamp(t.Stage, 1, Config.StageCount) end
 			if t.HandSigns then GameService.AddHandSigns(player, t.HandSigns) end
 			if t.Trophies then GameService.AddTrophies(player, t.Trophies) end
@@ -322,13 +339,16 @@ function GameService.Start()
 		local b = Instance.new("IntValue"); b.Name = "Rebirths"; b.Parent = ls
 		local c = Instance.new("IntValue"); c.Name = "Stage"; c.Parent = ls
 		ls.Parent = player
+		-- course shrank from 50 to 30 stages: clamp old saves
+		data.HighestUnlockedStage = math.clamp(data.HighestUnlockedStage, 1, Config.StageCount)
+		data.CurrentStage = math.clamp(data.CurrentStage, 1, data.HighestUnlockedStage)
 		GameService.CheckUnlocks(player)
 		GameService.Refresh(player)
 		local function spawnAt(char: Model)
 			local root = char:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 			if root then
 				task.wait()
-				root.CFrame = GameService.StageSpawnCFrame(math.clamp(data.CurrentStage, 1, data.HighestUnlockedStage))
+				root.CFrame = GameService.StageSpawnCFrame(0) -- everyone spawns in the lobby hub
 			end
 		end
 		player.CharacterAdded:Connect(spawnAt)

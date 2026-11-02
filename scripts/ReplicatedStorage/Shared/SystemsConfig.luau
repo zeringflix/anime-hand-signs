@@ -165,4 +165,11 @@ S.DevProducts = {
 S.FreeAuto = {ActiveSeconds = 180, CooldownSeconds = 420, TrainsPerSecond = 2}
 S.OPAutoTrainsPerSecond = 5
 
+-- issue #13 guard: lobby-hub systems (Boss Shop / Fuse) are NOT built yet. These are
+-- empty STUBS so SystemsService handlers fail safely instead of erroring. Filled in by the lobby issue.
+S.BossShop = S.BossShop or {}
+S.FuseTiers = S.FuseTiers or {}
+S.FuseCount = S.FuseCount or 3
+S.ShopOnlyAuras = S.ShopOnlyAuras or {}
+
 return S

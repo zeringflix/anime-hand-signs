@@ -60,16 +60,16 @@ Config.Jutsu = {
 for id, j in Config.Jutsu do (j :: any).Id = id end
 
 ---------------------------------------------------------------- HAND SIGNS (14)
-export type HandSign = {Id: string, Name: string, Order: number, Multiplier: number, Stage: number, Power: number, E: string, R: string, Color: Color3, Pose: string}
+export type HandSign = {Id: string, Name: string, Order: number, Multiplier: number, Stage: number, Power: number, Price: number, Emblem: string, E: string, R: string, Color: Color3, Pose: string}
 Config.HandSignOrder = {"Tiger","Ram","Snake","Rat","Ox","Hare","Horse","Boar","Dog","Bird","Monkey","Dragon","Advanced","Forbidden"}
 local signData = {
 	Tiger={"Tiger",1,1,"Fireball","PhoenixFlower",C(255,120,40),"tiger"},
-	Ram={"Ram",3,4,"Rasengan","ShadowClone",C(80,170,255),"ram"},
+	Ram={"Ram",3,4,"DragonFlame","ShadowClone",C(80,170,255),"ram"},
 	Snake={"Snake",8,7,"SnakeHands","StrikingSnakes",C(140,90,190),"snake"},
 	Rat={"Rat",20,10,"ShadowImitation","ShadowStrangle",C(70,60,90),"rat"},
 	Ox={"Ox",50,14,"Chidori","ChidoriStream",C(120,200,255),"ox"},
 	Hare={"Hare",120,18,"Substitution","BodyFlicker",C(230,230,240),"hare"},
-	Horse={"Horse",300,22,"DragonFlame","MajesticFlame",C(255,90,20),"horse"},
+	Horse={"Horse",300,22,"Rasengan","MajesticFlame",C(255,90,20),"horse"},
 	Boar={"Boar",800,26,"Summoning","EarthWall",C(160,110,60),"boar"},
 	Dog={"Dog",2000,30,"WaterWall","WaterDragon",C(40,140,255),"dog"},
 	Bird={"Bird",5000,34,"GreatBreakthrough","Rasenshuriken",C(170,240,220),"bird"},
@@ -173,11 +173,25 @@ for i, d in S do
 	}
 end
 
+-- Hand-sign Trophy prices (issue #13). PROPOSED DEFAULTS pending owner review:
+-- price = ~12x the trophy reward of the sign's unlock stage, rounded to 2 sig figs. Tiger is free.
+local EMBLEMS = {Tiger="🐯",Ram="🐏",Snake="🐍",Rat="🐀",Ox="🐂",Hare="🐇",Horse="🐎",Boar="🐗",Dog="🐕",Bird="🐦",Monkey="🐒",Dragon="🐉",Advanced="👁",Forbidden="☯"}
+local function nice(n: number): number
+	if n < 10 then return math.floor(n + 0.5) end
+	local p = 10 ^ (math.floor(math.log10(n)) - 1)
+	return math.floor(n / p + 0.5) * p
+end
 for id, d in signData do
 	local stage = d[3]
 	Config.HandSigns[id] = {Id = id, Name = d[1], Order = table.find(Config.HandSignOrder, id) :: number, Multiplier = d[2],
 		Stage = stage, Power = stage <= 1 and 0 or math.floor(Config.Stages[stage].Recommended * 0.5),
+		Price = id == "Tiger" and 0 or nice(Config.Stages[stage].Trophies * 12), Emblem = EMBLEMS[id] or "✋",
 		E = d[4], R = d[5], Color = d[6], Pose = d[7]}
+end
+-- startup schema validation
+for _, id in Config.HandSignOrder do
+	local s = Config.HandSigns[id]
+	assert(s and type(s.Price) == "number" and type(s.Power) == "number" and Config.Stages[s.Stage] and Config.Jutsu[s.E] and Config.Jutsu[s.R], "Config: bad hand sign " .. id)
 end
 
 ---------------------------------------------------------------- NUMBER FORMAT
