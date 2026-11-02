@@ -63,7 +63,7 @@ function GameService.RebirthMultiplier(data: any): number
 end
 GameService.UpgradeLevel = function(data: any, id: string): number return data.Upgrades[id] or 0 end
 GameService.HasPass = function(_player: Player, _key: string): boolean return false end -- SystemsService replaces (real game-pass ownership)
-GameService.TrophyBonus = function(_player: Player, _data: any): number return 1 end -- SystemsService replaces (passes)
+GameService.TrophyBonus = function(_player: Player, _data: any, _excludeDoublePass: boolean?): number return 1 end -- SystemsService replaces (passes)
 GameService.SnapshotExtras = {} :: {(Player, any, any) -> ()}
 
 ---------------------------------------------------------------- replication
@@ -126,10 +126,10 @@ function GameService.AddHandSigns(player: Player, amount: number)
 	GameService.Refresh(player)
 end
 
-function GameService.AddTrophies(player: Player, amount: number)
+function GameService.AddTrophies(player: Player, amount: number, excludeDoublePass: boolean?)
 	local data = DataService.Get(player)
 	if not data or not DataService.CanMutate(player) or amount ~= amount or amount <= 0 then return end
-	local mult = (1 + 0.25 * GameService.UpgradeLevel(data, "TrophyGain")) * GameService.TrophyBonus(player, data)
+	local mult = (1 + 0.25 * GameService.UpgradeLevel(data, "TrophyGain")) * GameService.TrophyBonus(player, data, excludeDoublePass)
 	amount = math.floor(amount * mult + 0.5)
 	data.Trophies += amount
 	data.LifetimeTrophies += amount
@@ -242,7 +242,9 @@ end
 -- WIN PADS (owner request): after clearing a stage the player chooses: collect their wins on the pad (which
 -- sends them back to the lobby) or keep going to the next stage. Two pads per stage:
 --   TrophyPad   -> x1 stage reward, teleport to lobby
---   TrophyPadX2 -> x2 stage reward (needs the "x2 Win Pad" game pass; prompts the pass otherwise), teleport to lobby
+--   TrophyPadX2 -> x2 stage reward for owners of the 2x Trophies pass (prompts the pass otherwise), teleport to lobby
+-- One pass, no stacking: 2x Trophies doubles trophies everywhere AND unlocks the x2 pad; pad rewards skip the pass's
+-- general doubling so the x1 pad pays x1 and the x2 pad pays exactly x2 (never x4).
 -- The reward is pending per player per clear (server-side), so touching twice / both pads never pays twice.
 function GameService.ClaimPad(player: Player, stage: number, mult: number?): boolean
 	local pads = GameService.PendingPads[player]
@@ -251,7 +253,7 @@ function GameService.ClaimPad(player: Player, stage: number, mult: number?): boo
 	pads[key] = nil
 	local st = Config.Stages[stage]
 	local amt = st.Trophies * 10 * (mult or 1)
-	GameService.AddTrophies(player, amt)
+	GameService.AddTrophies(player, amt, true)
 	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt, Mult = mult or 1})
 	GameService.Refresh(player)
 	task.delay(0.6, function() -- short beat for the reward pop, then back to the hub
@@ -265,7 +267,7 @@ function GameService.ClaimPad(player: Player, stage: number, mult: number?): boo
 	return true
 end
 
-local WIN_PAD_PASS = "DoubleWinPad"
+local WIN_PAD_PASS = "DoubleTrophies" -- the single 2x Trophies pass
 function GameService.ClaimPadX2(player: Player, stage: number): boolean
 	local pads = GameService.PendingPads[player]
 	if not pads or not pads[tostring(stage)] then return false end
@@ -275,7 +277,7 @@ function GameService.ClaimPadX2(player: Player, stage: number): boolean
 	if gp and gp.Id ~= 0 then
 		game:GetService("MarketplaceService"):PromptGamePassPurchase(player, gp.Id)
 	else
-		GameService.Notify(player, "Toast", "x2 Wins pad: not available yet - use the normal pad")
+		GameService.Notify(player, "Toast", "x2 Wins needs the 2x Trophies pass (not available yet) - use the normal pad")
 	end
 	return false
 end
@@ -315,7 +317,7 @@ local function buildWinPads()
 				x2.CFrame = pad.CFrame - Vector3.new(0, 0, side * (pad.Size.Z + 3))
 				x2:SetAttribute("Stage", stage)
 				x2.Parent = stageModel
-				padLabel(x2, "x2 WINS", "Win Pad pass · back to lobby", Color3.fromRGB(220, 150, 255))
+				padLabel(x2, "x2 WINS", "2x Trophies pass · back to lobby", Color3.fromRGB(220, 150, 255))
 				x2.Touched:Connect(function(hit)
 					local player = Players:GetPlayerFromCharacter(hit.Parent)
 					if not player then return end

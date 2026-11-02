@@ -55,10 +55,10 @@ GameService.MultiplierProviders.Passes = function(p, data)
 end
 SystemsService.HasPass = hasPass
 GameService.HasPass = hasPass
-GameService.TrophyBonus = function(p, data)
+GameService.TrophyBonus = function(p, data, excludeDoublePass)
 	local m = 1
 	if (data and data.TrophyBoostUntil or 0) > os.time() then m *= 2 end
-	if hasPass(p, "DoubleTrophies") then m *= 2 end
+	if hasPass(p, "DoubleTrophies") and not excludeDoublePass then m *= 2 end -- win pads apply it via the x2 pad instead
 	if hasPass(p, "VIP") then m *= 1.25 end
 	return m
 end
