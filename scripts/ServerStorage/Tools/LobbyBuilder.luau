@@ -25,7 +25,7 @@ local function fresh(mod: ModuleScript): any
 end
 local Config = fresh(RS.Shared.Config)
 local SC = fresh(RS.Shared.SystemsConfig)
-local Assets = require(RS.Shared.Assets)
+local Assets = fresh(RS.Shared.Assets)
 local ServerStorage = game:GetService("ServerStorage")
 
 local B = {}
@@ -314,79 +314,333 @@ local function buildBossRift()
 end
 
 ---------------------------------------------------------------- training station field (north side)
-local function centerpiece(g: Model, theme: string, x: number, z: number, y: number, color: Color3)
-	if theme == "ring" then
-		for _, o in {{-4, -4}, {-4, 4}, {4, -4}, {4, 4}} do Blk(g, Vector3.new(0.6, 4, 0.6), x + o[1], z + o[2], y, Color3.new(1, 1, 1)) end
-		for _, h in {1.5, 3} do
-			for _, s in {-4, 4} do
-				Blk(g, Vector3.new(8.6, 0.3, 0.3), x, z + s, y + h, C(220, 50, 50)); Blk(g, Vector3.new(0.3, 0.3, 8.6), x + s, z, y + h, C(60, 90, 220))
-			end
+---------------------------------------------------------------- training station kit (detailed, reference-style builds)
+local TEX = {
+	Rune = "rbxassetid://123418957532795", Spiral = "rbxassetid://127628361347448", GoldRing = "rbxassetid://71800837774248",
+	Target = "rbxassetid://124610263594344", Swirl = "rbxassetid://107310565347443", DummyFace = "rbxassetid://75618960542114",
+}
+local GLOW = C(255, 238, 110)
+local function decal(part: BasePart, face: Enum.NormalId, id: string, transp: number?)
+	local d = Instance.new("Decal"); d.Face = face; d.Texture = id; d.Transparency = transp or 0; d.Parent = part
+	return d
+end
+local function R(parent: Instance, size: Vector3, cf: CFrame, color: Color3, extra: {[string]: any}?): BasePart
+	local t: {[string]: any} = {Size = size, CFrame = cf, Color = color, Parent = parent}
+	if extra then for k, v in extra do t[k] = v end end
+	return P(t)
+end
+local NEON = {Material = Enum.Material.Neon}
+local NOCOL = {CanCollide = false, CastShadow = false}
+local function glowCap(parent: Instance, x: number, z: number, y: number, s: number?)
+	local q = s or 1.5
+	R(parent, Vector3.new(q, q, q), CFrame.new(W(x, z, y + q / 2)) * CFrame.Angles(0, math.rad(45), 0), GLOW, merge(NEON, {CanCollide = false}))
+end
+local function lightAt(part: BasePart, color: Color3, range: number)
+	local l = Instance.new("PointLight"); l.Color = color; l.Range = range; l.Brightness = 1.2; l.Shadows = false; l.Parent = part
+end
+
+-- shared plinth: dark studded slab, inset themed floor, raised gold rail with glowing caps (reference look)
+local function plinth(m: Model, x: number, z: number, y0: number, floorColor: Color3, floorMat: Enum.Material?, rail: boolean?): number
+	Blk(m, Vector3.new(16, 1.2, 16), x, z, y0 - 0.9, PAL.Stone, merge(STUDS, {Name = "Base"}))
+	Blk(m, Vector3.new(13.6, 1.25, 13.6), x, z, y0 - 0.9, floorColor, {Material = floorMat or Enum.Material.SmoothPlastic, Name = "Floor"})
+	local top = y0 + 0.35
+	if rail ~= false then
+		for _, s in {-1, 1} do
+			Blk(m, Vector3.new(15.2, 0.6, 0.6), x, z + s * 7.3, top + 1.6, PAL.Gold)
+			Blk(m, Vector3.new(0.6, 0.6, 15.2), x + s * 7.3, z, top + 1.6, PAL.Gold)
+			Blk(m, Vector3.new(15.6, 0.35, 0.9), x, z + s * 7.5, top - 0.2, PAL.Gold, NEON)
+			Blk(m, Vector3.new(0.9, 0.35, 15.6), x + s * 7.5, z, top - 0.2, PAL.Gold, NEON)
 		end
-		Blk(g, Vector3.new(0.4, 6, 0.4), x, z - 2, y + 1, PAL.Ink); Blk(g, Vector3.new(1.6, 3, 1.6), x, z - 2, y + 2.4, C(200, 40, 40))
-	elseif theme == "shrine" then
-		Blk(g, Vector3.new(7, 4, 5), x, z, y, C(200, 50, 46)); Blk(g, Vector3.new(9, 1, 7), x, z, y + 4, PAL.Ink); Blk(g, Vector3.new(6, 1, 4), x, z, y + 5, PAL.Ink)
-	elseif theme == "crystal" then
-		Blk(g, Vector3.new(4, 2, 4), x, z, y, PAL.Stone2)
-		P({Size = Vector3.new(2.6, 9, 2.6), CFrame = CFrame.new(W(x, z, y + 6.5)) * CFrame.Angles(0, math.rad(45), 0), Color = color, Material = Enum.Material.Neon, Transparency = 0.1, Parent = g})
-	elseif theme == "furnace" then
-		Blk(g, Vector3.new(5, 6, 5), x, z, y, PAL.Ink); Blk(g, Vector3.new(3, 2, 0.4), x, z - 2.6, y + 1.5, C(255, 90, 30), {Material = Enum.Material.Neon}); Blk(g, Vector3.new(1.4, 4, 1.4), x + 1.2, z + 1.2, y + 6, PAL.Stone2)
-	elseif theme == "gate" then
-		for _, s in {-3, 3} do Blk(g, Vector3.new(0.9, 7, 0.9), x + s, z, y, C(206, 56, 44)) end
-		Blk(g, Vector3.new(9, 0.9, 1.4), x, z, y + 7, PAL.Ink); Blk(g, Vector3.new(7.4, 0.6, 1), x, z, y + 5.6, C(206, 56, 44))
-	elseif theme == "dome" then
-		local d = P({Shape = Enum.PartType.Ball, Size = Vector3.new(9, 9, 9), CFrame = CFrame.new(W(x, z, y)), Color = color, Material = Enum.Material.Glass, Transparency = 0.45, CanCollide = false, Parent = g})
-		d.Name = "Dome"; Blk(g, Vector3.new(1.6, 3, 1.6), x, z, y, C(255, 255, 255), {Material = Enum.Material.Neon})
-	elseif theme == "portal" then
-		for _, s in {-3, 3} do Blk(g, Vector3.new(1.2, 8, 1.2), x + s, z, y, PAL.Ink) end
-		Blk(g, Vector3.new(7.4, 1.2, 1.2), x, z, y + 8, PAL.Ink)
-		Blk(g, Vector3.new(4.8, 7, 0.3), x, z, y + 0.6, color, {Material = Enum.Material.Neon, Transparency = 0.3, CanCollide = false})
-	elseif theme == "blossom" then
-		Blk(g, Vector3.new(1, 5, 1), x, z, y, PAL.Trunk); Blk(g, Vector3.new(7, 3, 7), x, z, y + 4.4, C(255, 186, 214)); Blk(g, Vector3.new(4.4, 2, 4.4), x + 0.8, z, y + 7.2, C(255, 210, 228))
-	elseif theme == "orb" or theme == "beam" then
-		Blk(g, Vector3.new(3, 3, 3), x, z, y, PAL.Stone2)
-		P({Shape = Enum.PartType.Ball, Size = Vector3.new(6, 6, 6), CFrame = CFrame.new(W(x, z, y + 6.5)), Color = color, Material = Enum.Material.Neon, Transparency = 0.15, CanCollide = false, Parent = g})
-		if theme == "beam" then beam(g, x, z, y + 9, color) end
-	elseif theme == "garden" then
-		for i = 0, 5 do local a = i * math.pi / 3; Blk(g, Vector3.new(1.4, 1.4 + i % 2, 1.4), x + math.cos(a) * 3, z + math.sin(a) * 3, y, i % 2 == 0 and C(255, 120, 190) or C(255, 220, 90)) end
-		Blk(g, Vector3.new(2, 4, 2), x, z, y, C(120, 200, 80))
-	elseif theme == "tower" then
-		for k = 0, 3 do Blk(g, Vector3.new(6 - k, 2.4, 6 - k), x, z, y + k * 3, k % 2 == 0 and C(240, 236, 226) or color); Blk(g, Vector3.new(7.4 - k, 0.6, 7.4 - k), x, z, y + k * 3 + 2.4, PAL.Ink) end
+		for _, o in {{-7.3, -7.3}, {-7.3, 7.3}, {7.3, -7.3}, {7.3, 7.3}} do
+			Blk(m, Vector3.new(1.3, 2.6, 1.3), x + o[1], z + o[2], top, PAL.Gold)
+			glowCap(m, x + o[1], z + o[2], top + 2.6, 1.3)
+		end
+	end
+	return top
+end
+
+
+-- place a generated (Roblox AI mesh) model: scale to fit maxW footprint, bottom at y, yaw in degrees
+local function placeMesh(parent: Instance, src: Instance, x: number, z: number, y: number, maxW: number, yaw: number, maxH: number?): Model
+	local mdl = (src :: Model):Clone()
+	local _, sz = mdl:GetBoundingBox()
+	local k = maxW / math.max(sz.X, sz.Z, 0.1)
+	if maxH then k = math.min(k, maxH / math.max(sz.Y, 0.1)) end
+	mdl:ScaleTo(mdl:GetScale() * k)
+	mdl:PivotTo(CFrame.new(W(x, z, y)) * CFrame.Angles(0, math.rad(yaw), 0))
+	local bb, sz2 = mdl:GetBoundingBox()
+	mdl:PivotTo(mdl:GetPivot() + Vector3.new(0, y - (bb.Position.Y - sz2.Y / 2), 0))
+	for _, d in mdl:GetDescendants() do if d:IsA("BasePart") then d.Anchored = true; d.CanCollide = false end end
+	mdl.Parent = parent
+	return mdl
+end
+local STATION_BUILD: {[string]: (Model, number, number, number, Color3) -> ()} = {}
+
+STATION_BUILD.ring = function(m, x, z, y0) -- X2: dummy training yard
+	local y = plinth(m, x, z, y0, C(122, 210, 84), Enum.Material.Grass, false)
+	local wood, woodD = C(168, 116, 70), C(122, 82, 50)
+	for _, s in {-1, 1} do -- fence
+		for k = -3, 3 do Blk(m, Vector3.new(0.7, 2.6, 0.7), x + k * 2.2, z + s * 7, y, woodD) end
+		Blk(m, Vector3.new(14.6, 0.45, 0.4), x, z + s * 7, y + 1.0, wood); Blk(m, Vector3.new(14.6, 0.45, 0.4), x, z + s * 7, y + 2.0, wood)
+		for k = -3, 3 do Blk(m, Vector3.new(0.7, 2.6, 0.7), x + s * 7, z + k * 2.2, y, woodD) end
+		Blk(m, Vector3.new(0.4, 0.45, 14.6), x + s * 7, z, y + 1.0, wood); Blk(m, Vector3.new(0.4, 0.45, 14.6), x + s * 7, z, y + 2.0, wood)
+	end
+	for _, d in {{-2.6, -1.5}, {2.6, -1.5}} do -- scarecrow dummies with straw hats
+		local dx, dz = x + d[1], z + d[2]
+		Blk(m, Vector3.new(0.6, 3, 0.6), dx, dz, y, woodD)
+		Blk(m, Vector3.new(2.4, 2.6, 1.6), dx, dz, y + 2.6, C(214, 196, 140))
+		Blk(m, Vector3.new(5, 0.6, 0.6), dx, dz, y + 4.3, wood)
+		for _, s in {-1, 1} do Blk(m, Vector3.new(0.7, 0.9, 0.7), dx + s * 2.6, dz, y + 3.9, C(214, 196, 140)) end
+		local head = Blk(m, Vector3.new(2.2, 2.2, 2.2), dx, dz, y + 5.2, C(236, 222, 176))
+		decal(head, Enum.NormalId.Back, TEX.DummyFace)
+		local tgt = Blk(m, Vector3.new(1.8, 1.8, 0.2), dx, dz + 0.9, y + 3, Color3.new(1, 1, 1), {Transparency = 1})
+		decal(tgt, Enum.NormalId.Back, TEX.Target)
+		Disc(m, 4, 0.3, dx, dz, y + 7.7, C(232, 198, 110))
+		Disc(m, 2.2, 1.2, dx, dz, y + 8.9, C(232, 198, 110))
+		Disc(m, 2.25, 0.4, dx, dz, y + 8.1, C(200, 50, 46))
+	end
+	for _, t in {{-4.5, 3.5}, {0, 4}} do -- target stands
+		local tx, tz = x + t[1], z + t[2]
+		Blk(m, Vector3.new(0.4, 3.2, 0.4), tx, tz + 0.6, y, woodD)
+		local face = R(m, Vector3.new(2.8, 2.8, 0.4), CFrame.new(W(tx, tz, y + 3.4)) * CFrame.Angles(math.rad(-12), 0, 0), Color3.new(1, 1, 1))
+		decal(face, Enum.NormalId.Front, TEX.Target)
+		decal(face, Enum.NormalId.Back, TEX.Target)
+	end
+	local barrel = Disc(m, 2.4, 3, x + 4.6, z + 4.4, y + 3, C(140, 90, 52)); barrel.CFrame = CFrame.new(W(x + 4.6, z + 4.4, y + 1.5)) * CFrame.Angles(0, 0, math.rad(90))
+	Disc(m, 2.5, 0.25, x + 4.6, z + 4.4, y + 0.9, PAL.Ink); Disc(m, 2.5, 0.25, x + 4.6, z + 4.4, y + 2.4, PAL.Ink)
+	Blk(m, Vector3.new(3, 1.6, 2), x - 4.8, z + 4.6, y, C(226, 196, 100))
+	for k = 0, 2 do Blk(m, Vector3.new(1.6, 0.15, 1.6), x - 1 + k * 1.8, z + 1.5, y, C(196, 160, 110)) end
+end
+
+STATION_BUILD.shrine = function(m, x, z, y0) -- X3: boxing ring
+	local y = plinth(m, x, z, y0, C(240, 240, 246), nil, false)
+	local mat = Blk(m, Vector3.new(13, 1, 13), x, z, y, C(244, 244, 250), {Name = "RingMat"})
+	decal(mat, Enum.NormalId.Top, TEX.GoldRing)
+	y += 1
+	local corners = {{-6, -6, C(220, 50, 50)}, {6, 6, C(220, 50, 50)}, {-6, 6, C(50, 100, 230)}, {6, -6, C(50, 100, 230)}}
+	for _, c in corners do
+		Blk(m, Vector3.new(1.3, 4.4, 1.3), x + c[1], z + c[2], y, c[3])
+		Blk(m, Vector3.new(1.5, 0.6, 1.5), x + c[1], z + c[2], y, Color3.new(1, 1, 1))
+		glowCap(m, x + c[1], z + c[2], y + 4.4, 1.4)
+	end
+	local ropes = {C(220, 50, 50), Color3.new(1, 1, 1), C(50, 100, 230)}
+	for i, col in ropes do
+		local h = y + 1.2 + (i - 1) * 1.1
+		for _, s in {-1, 1} do
+			Blk(m, Vector3.new(11.6, 0.3, 0.3), x, z + s * 6, h, col); Blk(m, Vector3.new(0.3, 0.3, 11.6), x + s * 6, z, h, col)
+		end
+	end
+	-- punching bag on a gallows behind the ring
+	Blk(m, Vector3.new(0.8, 9, 0.8), x - 7.6, z - 7.6, y - 1, PAL.Ink)
+	Blk(m, Vector3.new(5, 0.7, 0.7), x - 5.5, z - 7.6, y + 7.4, PAL.Ink)
+	Blk(m, Vector3.new(0.2, 1.4, 0.2), x - 3.6, z - 7.6, y + 6, C(90, 90, 96))
+	local bag = Disc(m, 2, 3.4, x - 3.6, z - 7.6, y + 6, C(200, 40, 40)); bag.CFrame = CFrame.new(W(x - 3.6, z - 7.6, y + 4.3)) * CFrame.Angles(0, 0, math.rad(90))
+	Disc(m, 2.05, 0.4, x - 3.6, z - 7.6, y + 5.2, PAL.Ink); Disc(m, 2.05, 0.4, x - 3.6, z - 7.6, y + 3.2, PAL.Ink)
+end
+
+STATION_BUILD.crystal = function(m, x, z, y0, col) -- X5: crystal spire
+	local y = plinth(m, x, z, y0, C(60, 70, 110))
+	Disc(m, 7, 1, x, z, y + 1, PAL.Stone2); Disc(m, 5, 1, x, z, y + 2, C(90, 100, 150))
+	local main = R(m, Vector3.new(2.8, 10, 2.8), CFrame.new(W(x, z, y + 7)) * CFrame.Angles(0, math.rad(45), 0), col, merge(NEON, {Transparency = 0.05}))
+	lightAt(main, col, 14)
+	for k = 0, 4 do
+		local a = k * math.pi * 2 / 5
+		R(m, Vector3.new(1.4, 4.5, 1.4), CFrame.new(W(x + math.cos(a) * 2.6, z + math.sin(a) * 2.6, y + 3.8)) * CFrame.Angles(math.cos(a) * 0.35, a, math.sin(a) * 0.35), col:Lerp(Color3.new(1, 1, 1), 0.3), merge(NEON, {Transparency = 0.15}))
+	end
+	for k = 0, 3 do R(m, Vector3.new(0.8, 0.8, 0.8), CFrame.new(W(x + (k < 2 and -4 or 4), z + (k % 2 == 0 and -4 or 4), y + 6 + k)) * CFrame.Angles(0.6, 0.6, 0), col, merge(NEON, NOCOL)) end
+end
+
+STATION_BUILD.furnace = function(m, x, z, y0) -- X7: blacksmith forge
+	local y = plinth(m, x, z, y0, C(70, 60, 60), Enum.Material.Cobblestone)
+	Blk(m, Vector3.new(7, 6, 6), x, z - 2, y, C(40, 38, 44), {Name = "Forge"})
+	Blk(m, Vector3.new(7.6, 0.8, 6.6), x, z - 2, y + 6, C(60, 56, 64))
+	Blk(m, Vector3.new(3.6, 2.6, 0.3), x, z + 1.05, y + 1.4, C(255, 110, 30), NEON)
+	Blk(m, Vector3.new(4.4, 0.5, 0.4), x, z + 1.15, y + 4.2, C(90, 86, 96))
+	Blk(m, Vector3.new(2.4, 6, 2.4), x + 2, z - 3.4, y + 6.8, C(60, 56, 64))
+	Blk(m, Vector3.new(3, 0.8, 3), x + 2, z - 3.4, y + 12.8, C(40, 38, 44))
+	local ember = Blk(m, Vector3.new(1.6, 1.6, 1.6), x + 2, z - 3.4, y + 13.6, C(255, 140, 40), merge(NEON, NOCOL)); lightAt(ember, C(255, 130, 40), 12)
+	Blk(m, Vector3.new(1.8, 1.6, 1.4), x - 3.6, z + 4, y, C(90, 90, 100)); Blk(m, Vector3.new(3.6, 1, 1.8), x - 3.6, z + 4, y + 1.6, C(110, 110, 122))
+	Blk(m, Vector3.new(0.4, 0.4, 2.6), x - 3.2, z + 4, y + 2.8, C(150, 110, 70)); Blk(m, Vector3.new(1, 0.8, 0.8), x - 3.2, z + 5, y + 2.6, C(120, 120, 130))
+	Blk(m, Vector3.new(1.4, 1.4, 1.4), x + 4.2, z + 4.4, y, C(255, 200, 60), NEON)
+end
+
+STATION_BUILD.gate = function(m, x, z, y0) -- X10: torii dojo on raked sand
+	local y = plinth(m, x, z, y0, C(232, 222, 196), Enum.Material.Sand)
+	for k = -2, 2 do Blk(m, Vector3.new(12, 0.1, 0.3), x, z + k * 2, y, C(208, 196, 168)) end
+	for _, s in {-1, 1} do Blk(m, Vector3.new(1.2, 8, 1.2), x + s * 3.6, z, y, C(206, 56, 44)); Blk(m, Vector3.new(1.8, 0.8, 1.8), x + s * 3.6, z, y, PAL.Ink) end
+	Blk(m, Vector3.new(10.6, 1, 1.6), x, z, y + 8, PAL.Ink)
+	Blk(m, Vector3.new(9.4, 0.7, 1.1), x, z, y + 6.6, C(206, 56, 44))
+	for _, s in {-1, 1} do R(m, Vector3.new(1.8, 1, 1.6), CFrame.new(W(x + s * 5.6, z, y + 8.7)) * CFrame.Angles(0, 0, math.rad(s * 12)), PAL.Ink) end
+	Blk(m, Vector3.new(1.4, 1.6, 0.3), x, z, y + 7.1, PAL.Gold)
+	for _, s in {-1, 1} do
+		Blk(m, Vector3.new(1.6, 0.6, 1.6), x + s * 4.5, z + 4.5, y, C(170, 170, 178))
+		Blk(m, Vector3.new(0.7, 1.8, 0.7), x + s * 4.5, z + 4.5, y + 0.6, C(170, 170, 178))
+		Blk(m, Vector3.new(1.4, 1.1, 1.4), x + s * 4.5, z + 4.5, y + 2.4, GLOW, NEON)
+		Blk(m, Vector3.new(2, 0.5, 2), x + s * 4.5, z + 4.5, y + 3.5, C(150, 150, 158))
 	end
 end
+
+STATION_BUILD.dome = function(m, x, z, y0, col) -- X15: chakra dome
+	local y = plinth(m, x, z, y0, C(40, 60, 90))
+	Disc(m, 10, 0.6, x, z, y + 0.6, C(70, 100, 140))
+	local dome = P({Shape = Enum.PartType.Ball, Size = Vector3.new(10, 10, 10), CFrame = CFrame.new(W(x, z, y + 0.3)), Color = C(160, 220, 255), Material = Enum.Material.Glass, Transparency = 0.55, CanCollide = false, Parent = m})
+	dome.Name = "Dome"
+	for k = 0, 7 do -- glowing ribs
+		local a = k * math.pi / 4
+		for j = 1, 4 do
+			local e = j * math.pi / 10
+			R(m, Vector3.new(0.4, 0.4, 0.4), CFrame.new(W(x + math.cos(a) * math.cos(e) * 5, z + math.sin(a) * math.cos(e) * 5, y + 0.3 + math.sin(e) * 5)), C(140, 230, 255), merge(NEON, NOCOL))
+		end
+	end
+	local core = P({Shape = Enum.PartType.Ball, Size = Vector3.new(2.6, 2.6, 2.6), CFrame = CFrame.new(W(x, z, y + 2.6)), Color = col, Material = Enum.Material.Neon, CanCollide = false, Parent = m})
+	lightAt(core, col, 14)
+	Disc(m, 2, 1.4, x, z, y + 1.4, PAL.Stone2)
+end
+
+STATION_BUILD.portal = function(m, x, z, y0, col) -- X20: obsidian rune shrine (reference-style)
+	local y = plinth(m, x, z, y0, C(30, 26, 40), Enum.Material.Slate, false)
+	local floorRune = Blk(m, Vector3.new(11, 0.1, 11), x, z, y, C(30, 26, 40), {Transparency = 1, CanCollide = false})
+	decal(floorRune, Enum.NormalId.Top, TEX.Rune)
+	local ob = C(28, 24, 36)
+	for _, p in {{-6.5, -6.5, 9}, {6.5, -6.5, 7}, {-6.5, 6.5, 6}, {6.5, 6.5, 8}} do -- obsidian pillars with neon strips
+		Blk(m, Vector3.new(2.2, p[3], 2.2), x + p[1], z + p[2], y, ob)
+		Blk(m, Vector3.new(0.3, p[3] - 2.4, 0.6), x + p[1] + (p[1] < 0 and 1.15 or -1.15), z + p[2], y + 1.2, col, NEON)
+		Blk(m, Vector3.new(2.6, 0.8, 2.6), x + p[1], z + p[2], y + p[3], C(44, 38, 56))
+	end
+	Blk(m, Vector3.new(15.8, 3, 1.4), x, z - 7.5, y - 0.3, ob) -- back wall
+	Blk(m, Vector3.new(15.8, 0.3, 0.2), x, z - 6.75, y + 2.4, col, NEON)
+	-- upright rune disc
+	local c = W(x - 1.5, z - 4.8, y + 6)
+	local disc = R(m, Vector3.new(7, 7, 0.3), CFrame.new(c) * CFrame.Angles(0, math.rad(10), 0), ob, {Transparency = 1, CanCollide = false})
+	decal(disc, Enum.NormalId.Back, TEX.Rune); decal(disc, Enum.NormalId.Front, TEX.Rune)
+	local glowDisc = P({Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 7.4, 7.4), CFrame = CFrame.new(c - Vector3.new(0, 0, 0.3)) * CFrame.Angles(0, math.rad(100), 0), Color = col, Material = Enum.Material.Neon, Transparency = 0.8, CanCollide = false, Parent = m})
+	lightAt(glowDisc, col, 16)
+	Disc(m, 3, 1.2, x + 1.5, z + 1, y + 1.2, ob); Disc(m, 2.2, 0.6, x + 1.5, z + 1, y + 1.8, C(44, 38, 56))
+	for k, f in {{-4, 3, 8}, {4.5, -2, 10}, {3, 5, 6.5}, {-2.5, -1, 11}} do -- floating cubes
+		local cube = R(m, Vector3.new(1.6, 1.6, 1.6), CFrame.new(W(x + f[1], z + f[2], y + f[3])) * CFrame.Angles(k * 0.5, k * 0.7, 0.3), ob, NOCOL)
+		cube.Name = "FloatCube"
+		R(m, Vector3.new(0.5, 0.5, 0.2), cube.CFrame * CFrame.new(0, 0, -0.85), col, merge(NEON, NOCOL))
+	end
+end
+
+STATION_BUILD.blossom = function(m, x, z, y0) -- X25: sakura garden
+	local y = plinth(m, x, z, y0, C(150, 210, 110), Enum.Material.Grass)
+	local pond = Blk(m, Vector3.new(6, 0.2, 4), x + 2.5, z + 3, y, C(110, 200, 255), {Material = Enum.Material.Glass, Transparency = 0.15, CanCollide = false})
+	pond.Name = "Pond"
+	for k = -1, 1 do Blk(m, Vector3.new(1.6, 0.4 + (1 - k * k) * 0.4, 1.8), x + 2.5 + k * 1.5, z + 3, y + 0.1, C(206, 64, 56)) end
+	Blk(m, Vector3.new(1.4, 6, 1.4), x - 3, z - 2, y, C(110, 70, 60))
+	R(m, Vector3.new(1, 4, 1), CFrame.new(W(x - 1.8, z - 2, y + 6.4)) * CFrame.Angles(0, 0, math.rad(-35)), C(110, 70, 60))
+	for _, c in {{-3, -2, 7, 8, 3, 7}, {-1, -2.5, 9.5, 6, 2.6, 6}, {-4.5, -1, 9, 5, 2.4, 5}, {-2.5, -3, 11.4, 4, 2, 4}} do
+		Blk(m, Vector3.new(c[4], c[5], c[6]), x + c[1], z + c[2], y + c[3], (c[3] % 2 > 1) and C(255, 196, 222) or C(255, 170, 206))
+	end
+	for k = 1, 10 do local r = Random.new(k); Blk(m, Vector3.new(0.6, 0.08, 0.6), x + r:NextNumber(-6, 6), z + r:NextNumber(-6, 6), y, C(255, 186, 214), NOCOL) end
+	Blk(m, Vector3.new(1.4, 0.5, 1.4), x + 4.5, z - 4.5, y, C(170, 170, 178)); Blk(m, Vector3.new(0.6, 1.6, 0.6), x + 4.5, z - 4.5, y + 0.5, C(170, 170, 178))
+	Blk(m, Vector3.new(1.2, 1, 1.2), x + 4.5, z - 4.5, y + 2.1, GLOW, NEON); Blk(m, Vector3.new(1.8, 0.4, 1.8), x + 4.5, z - 4.5, y + 3.1, C(150, 150, 158))
+end
+
+STATION_BUILD.orb = function(m, x, z, y0, col) -- X35: crimson orb altar
+	local y = plinth(m, x, z, y0, C(60, 20, 30))
+	Disc(m, 8, 1, x, z, y + 1, PAL.Stone2); Disc(m, 6, 1, x, z, y + 2, C(90, 30, 40)); Disc(m, 3, 3, x, z, y + 5, PAL.Stone2)
+	local orb = P({Shape = Enum.PartType.Ball, Size = Vector3.new(5, 5, 5), CFrame = CFrame.new(W(x, z, y + 8)), Color = col, Material = Enum.Material.Neon, Transparency = 0.05, CanCollide = false, Parent = m})
+	lightAt(orb, col, 18)
+	for k = 0, 1 do
+		R(m, Vector3.new(0.3, 7.6, 7.6), CFrame.new(W(x, z, y + 8)) * CFrame.Angles(0, k * math.pi / 2, math.rad(70)), col, merge(NEON, {Shape = Enum.PartType.Cylinder, Transparency = 0.75, CanCollide = false}))
+	end
+	for _, o in {{-5, -5}, {5, -5}, {-5, 5}, {5, 5}} do
+		Blk(m, Vector3.new(1, 4, 1), x + o[1], z + o[2], y, PAL.Ink); Blk(m, Vector3.new(1.2, 1.2, 1.2), x + o[1], z + o[2], y + 4, col, NEON)
+	end
+end
+
+STATION_BUILD.garden = function(m, x, z, y0) -- X50: glowing mushroom grove
+	local y = plinth(m, x, z, y0, C(70, 110, 60), Enum.Material.Grass)
+	for k, mu in {{-3, -3, 1.4, C(255, 90, 160)}, {3, -2, 1.1, C(120, 220, 255)}, {-1, 3, 1.7, C(255, 200, 70)}, {4, 4, 0.9, C(255, 90, 160)}, {0, -0.5, 1.2, C(170, 120, 255)}} do
+		local s = mu[3]
+		Blk(m, Vector3.new(0.9, 2.6, 0.9) * s, x + mu[1], z + mu[2], y, C(240, 236, 220))
+		local cap = P({Shape = Enum.PartType.Ball, Size = Vector3.new(3.6, 3.6, 3.6) * s, CFrame = CFrame.new(W(x + mu[1], z + mu[2], y + 2.6 * s)), Color = mu[4], Material = Enum.Material.Neon, Transparency = 0.1, CanCollide = false, Parent = m})
+		if k == 3 then lightAt(cap, mu[4], 14) end
+	end
+	for k = 1, 8 do local r = Random.new(50 + k); Blk(m, Vector3.new(0.7, 0.7, 0.7), x + r:NextNumber(-6, 6), z + r:NextNumber(-6, 6), y, k % 2 == 0 and C(255, 120, 190) or C(255, 230, 100)) end
+end
+
+STATION_BUILD.tower = function(m, x, z, y0, col) -- X100: pagoda tower
+	local y = plinth(m, x, z, y0, C(232, 222, 196), Enum.Material.Sand)
+	local yy = y
+	for k = 0, 3 do
+		local w = 7 - k * 1.3
+		Blk(m, Vector3.new(w, 2.6, w), x, z, yy, C(244, 236, 226))
+		for _, o in {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}} do Blk(m, Vector3.new(0.5, 2.6, 0.5), x + o[1] * (w / 2 - 0.2), z + o[2] * (w / 2 - 0.2), yy, C(200, 56, 50)) end
+		Blk(m, Vector3.new(w + 2.6, 0.6, w + 2.6), x, z, yy + 2.6, C(52, 84, 112))
+		Blk(m, Vector3.new(w + 1.2, 0.5, w + 1.2), x, z, yy + 3.2, C(40, 64, 86))
+		yy += 3.7
+	end
+	Blk(m, Vector3.new(0.5, 3, 0.5), x, z, yy, PAL.Gold)
+	local top = P({Shape = Enum.PartType.Ball, Size = Vector3.new(1.4, 1.4, 1.4), CFrame = CFrame.new(W(x, z, yy + 3.4)), Color = col, Material = Enum.Material.Neon, CanCollide = false, Parent = m})
+	lightAt(top, col, 12)
+end
+
+STATION_BUILD.beam = function(m, x, z, y0, col) -- X250: golden throne before a spiral portal (reference-style)
+	local y = plinth(m, x, z, y0, C(60, 20, 110))
+	local swirl = Blk(m, Vector3.new(13.4, 0.1, 13.4), x, z, y, Color3.new(1, 1, 1), {Transparency = 1, CanCollide = false})
+	decal(swirl, Enum.NormalId.Top, TEX.Swirl, 0.1)
+	Blk(m, Vector3.new(8, 0.8, 7), x, z - 1.5, y, C(244, 240, 250)); Blk(m, Vector3.new(6.4, 0.8, 5.6), x, z - 2, y + 0.8, PAL.Gold)
+	Blk(m, Vector3.new(5, 0.8, 4.4), x, z - 2.4, y + 1.6, C(244, 240, 250))
+	local ty = y + 2.4
+	Blk(m, Vector3.new(3.4, 1, 3), x, z - 2.6, ty, C(150, 90, 230)) -- seat
+	Blk(m, Vector3.new(3.4, 5.6, 0.8), x, z - 4.2, ty, PAL.Gold) -- back
+	for _, s in {-1, 1} do
+		Blk(m, Vector3.new(0.7, 2, 3), x + s * 2, z - 2.6, ty + 1, PAL.Gold)
+		Blk(m, Vector3.new(0.6, 6, 0.6), x + s * 3.2, z - 4.4, ty, PAL.Gold); glowCap(m, x + s * 3.2, z - 4.4, ty + 6, 1.1)
+	end
+	R(m, Vector3.new(0.4, 1.8, 0.4), CFrame.new(W(x + 2.6, z - 1, ty + 3.6)) * CFrame.Angles(0, 0, math.rad(-20)), PAL.Gold)
+	-- spiral portal disc behind the throne
+	local c = W(x, z - 6.2, y + 9)
+	local disc = R(m, Vector3.new(10, 10, 0.3), CFrame.new(c), C(120, 60, 220), {Transparency = 1, CanCollide = false})
+	decal(disc, Enum.NormalId.Back, TEX.Spiral); decal(disc, Enum.NormalId.Front, TEX.Spiral)
+	for i = 0, 23 do
+		local a = i * math.pi * 2 / 24
+		R(m, Vector3.new(1, 1, 0.6), CFrame.new(c) * CFrame.Angles(0, 0, a) * CFrame.new(0, 5.3, 0), i % 2 == 0 and PAL.Gold or C(255, 236, 160), merge(NEON, NOCOL))
+	end
+	local glow = P({Shape = Enum.PartType.Ball, Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(c), Transparency = 1, CanCollide = false, Parent = m})
+	lightAt(glow, col, 20)
+end
+
 local function buildStations()
 	local g = group("TrainingStations")
 	g:SetAttribute("Note", "ZoneMult applied server-side by GameService from SystemsConfig.TrainingStations (Rebirths gate).")
 	local cols, rows = {-62, -38, -14, 10, 34}, {-34, -55, -76}
+	-- generated station models from the owner's concept sheet (ServerStorage.LobbyAssets.Stations); the boxing
+	-- ring (X3), rune shrine (X20), orb altar, garden, pagoda and golden throne (X250) stay part-built (Anime Eyes refs)
+	local MESH_FOR = {[1] = "Dummy", [3] = "ChakraCircle", [4] = "Dojo", [5] = "ToriiArch", [6] = "ScrollAltar", [8] = "Totem"}
+	local stationAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Stations")
 	for i, st in SC.TrainingStations do
 		local row = math.ceil(i / #cols)
 		local col = (i - 1) % #cols + 1
 		local x, z = cols[col], rows[row]
 		local m = group("Station" .. i, g)
 		m:SetAttribute("StationIndex", i)
-		local y = 0.3 + (row - 1) * 0.6
-		Blk(m, Vector3.new(15, 1 + (row - 1) * 0.6, 15), x, z, -0.3, PAL.Stone, {Name = "Base"})
-		for _, s in {-1, 1} do
-			Blk(m, Vector3.new(15.4, 0.5, 0.9), x, z + s * 7.2, y + 0.4, PAL.Gold, {Material = Enum.Material.Neon})
-			Blk(m, Vector3.new(0.9, 0.5, 15.4), x + s * 7.2, z, y + 0.4, PAL.Gold, {Material = Enum.Material.Neon})
-		end
-		for _, o in {{-7, -7}, {-7, 7}, {7, -7}, {7, 7}} do
-			Blk(m, Vector3.new(1.1, 3, 1.1), x + o[1], z + o[2], y + 0.4, PAL.Gold)
-			Blk(m, Vector3.new(1, 1, 1), x + o[1], z + o[2], y + 3.4, PAL.Cyan, {Material = Enum.Material.Neon})
-		end
-		centerpiece(m, st.Theme, x, z, y + 0.4, st.Color)
-		local zone = P({Name = "Zone", Size = Vector3.new(15, 12, 15), CFrame = CFrame.new(W(x, z, y + 6)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
-		zone:SetAttribute("StationIndex", i)
-		if st.Mult >= 50 then beam(m, x + 6, z + 6, y + 3, st.Color) end
-		local bb = billboard(anchor(m, x, z, y + 13), Vector2.new(11, 4.2), 0, 120, "Card")
-		text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.5), st.Color, 4, "Mult")
-		if st.Rebirths > 0 then
-			icon(bb, "Rebirth", UDim2.fromScale(0.3, 0.52), UDim2.fromScale(0.16, 0.44))
-			text(bb, Config.Format(st.Rebirths), UDim2.fromScale(0.47, 0.54), UDim2.fromScale(0.3, 0.42), C(255, 90, 90), 3, "Price")
+		local y0 = 0.6 + (row - 1) * 0.5
+		local meshName = MESH_FOR[i]
+		local src = meshName and stationAssets and stationAssets:FindFirstChild(meshName)
+		if src then
+			local top = plinth(m, x, z, y0, C(58, 54, 70))
+			placeMesh(m, src, x, z, top - 0.1, 12.8, 0, 13).Name = "StationModel"
 		else
-			text(bb, "FREE", UDim2.fromScale(0.3, 0.54), UDim2.fromScale(0.4, 0.42), C(120, 255, 130), 3, "Price")
+			local build = STATION_BUILD[st.Theme] or STATION_BUILD.crystal
+			build(m, x, z, y0, st.Color)
+		end
+		local zone = P({Name = "Zone", Size = Vector3.new(16, 12, 16), CFrame = CFrame.new(W(x, z, y0 + 6)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
+		zone:SetAttribute("StationIndex", i)
+		if st.Mult >= 50 then beam(m, x + 6.5, z - 6.5, y0 + 3, st.Color) end
+		local bb = billboard(anchor(m, x, z, y0 + 16), Vector2.new(12, 4.6), 0, 130, "Card")
+		text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.52), st.Color, 4, "Mult")
+		if st.Rebirths > 0 then
+			icon(bb, "Rebirth", UDim2.fromScale(0.3, 0.54), UDim2.fromScale(0.16, 0.44))
+			text(bb, Config.Format(st.Rebirths), UDim2.fromScale(0.47, 0.55), UDim2.fromScale(0.3, 0.42), C(255, 90, 90), 4, "Price")
+		else
+			icon(bb, "Rebirth", UDim2.fromScale(0.3, 0.54), UDim2.fromScale(0.16, 0.44))
+			text(bb, "0", UDim2.fromScale(0.47, 0.55), UDim2.fromScale(0.3, 0.42), C(120, 255, 130), 4, "Price")
 		end
 	end
-	-- field sign
 	local s = anchor(g, -14, -24, 4, "SignAnchor")
 	local bb = billboard(s, Vector2.new(16, 2.4), 0, 80, "Card")
 	text(bb, "TRAINING ZONES · stand inside to multiply HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.new(1, 1, 1), 3)
@@ -410,12 +664,20 @@ local function buildShowcase()
 		m:SetAttribute("SignId", id)
 		local pad = Blk(m, Vector3.new(8, 0.5, 8), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
 		prompt(pad, "Buy", s.Name, {LobbyAction = "Sign", SignId = id})
-		-- floating emblem orb (original hand-sign emblem on a coloured sphere)
-		local orb = P({Name = "Orb", Shape = Enum.PartType.Ball, Size = Vector3.new(4.8, 4.8, 4.8), CFrame = CFrame.new(W(x, z, top + 9)), Color = s.Color,
-			Material = Enum.Material.SmoothPlastic, CanCollide = false, Parent = m})
-		local eb = billboard(orb, Vector2.new(4.2, 4.2), 0, 120, "Emblem")
-		eb.StudsOffset = Vector3.new(0, 0, 3) -- camera-space: draw the emblem in front of its orb
-		text(eb, s.Emblem, UDim2.fromScale(0.08, 0.08), UDim2.fromScale(0.84, 0.84), Color3.new(1, 1, 1), 0)
+		-- floating hand-sign icon tile (owner icon sheet) in a gold frame, facing the path
+		local iconId = Assets.SignIcons and Assets.SignIcons[id]
+		local cy = top + 11
+		P({Name = "Frame", Size = Vector3.new(6.2, 6.2, 0.5), CFrame = CFrame.new(W(x, z + 0.3, cy)), Color = PAL.Gold, Material = Enum.Material.Neon, CanCollide = false, Parent = m})
+		local tile = P({Name = "Orb", Size = Vector3.new(5.6, 5.6, 0.6), CFrame = CFrame.new(W(x, z, cy)), Color = s.Color, CanCollide = false, Parent = m})
+		local sg = Instance.new("SurfaceGui"); sg.Name = "Emblem"; sg.Face = Enum.NormalId.Front; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		sg.PixelsPerStud = 46; sg.LightInfluence = 0; sg.Parent = tile
+		if iconId then
+			local img = Instance.new("ImageLabel"); img.BackgroundTransparency = 1; img.Image = iconId; img.Size = UDim2.fromScale(1, 1); img.Parent = sg
+			local cr = Instance.new("UICorner"); cr.CornerRadius = UDim.new(0.12, 0); cr.Parent = img
+		else
+			text(sg, s.Emblem, UDim2.fromScale(0.1, 0.1), UDim2.fromScale(0.8, 0.8), Color3.new(1, 1, 1), 0)
+		end
+		Blk(m, Vector3.new(0.5, cy - top - 3.1, 0.5), x, z + 0.4, top, PAL.Gold)
 		local a = anchor(m, x, z, top + 5.2)
 		local bb = billboard(a, Vector2.new(8.4, 4.6), 0, 75, "Card")
 		text(bb, s.Name, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.32), s.Color:Lerp(Color3.new(1, 1, 1), 0.45), 3, "SignName")
@@ -432,18 +694,31 @@ local function buildEggs()
 	Blk(g, Vector3.new(170, 0.4, 16), 2, 72, 0, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
 	for _, z in {63.5, 80.5} do Blk(g, Vector3.new(170, 0.45, 1.2), 2, z, 0, PAL.LimeEdge) end
 	local n = #SC.EggOrder
+	local eggAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Eggs")
 	for i, eggId in SC.EggOrder do
 		local egg = SC.Eggs[eggId]
 		local x, z = -36 + (i - 1) * (114 / (n - 1)), 74
 		local m = group("Egg_" .. eggId, g)
-		Disc(m, 9, 1, x, z, 1.4, PAL.Stone)
-		Disc(m, 7.6, 0.5, x, z, 1.7, egg.Color:Lerp(C(255, 40, 60), 0.5), {Material = Enum.Material.Neon, Transparency = 0.15})
-		local ped = Disc(m, 6, 1.6, x, z, 3.2, PAL.Stone2, {Name = "Pedestal"})
-		prompt(ped, "Hatch", egg.Name .. " · " .. Config.Format(egg.Cost) .. " Trophies", {LobbyAction = "Hatch", EggId = eggId})
-		local e = P({Name = "Egg", Shape = Enum.PartType.Ball, Size = Vector3.new(5, 5, 5), CFrame = CFrame.new(W(x, z, 6.4)), Color = egg.Color, Parent = m})
-		local mesh = Instance.new("SpecialMesh"); mesh.MeshType = Enum.MeshType.Sphere; mesh.Scale = Vector3.new(1, 1.28, 1); mesh.Parent = e
-		if i >= n - 1 then beam(m, x, z + 3, 3, egg.Color) end
-		local bb = billboard(e, Vector2.new(7, 3.2), 5.4, 70, "Card")
+		local glowCol = egg.Color:Lerp(Color3.new(1, 1, 1), 0.2)
+		Disc(m, 10, 0.8, x, z, 1.1, PAL.Stone)
+		Disc(m, 9.2, 0.82, x, z, 1.12, glowCol, {Material = Enum.Material.Neon, Transparency = 0.35})
+		Disc(m, 8, 0.86, x, z, 1.16, PAL.Stone2, STUDS)
+		local top = 1.16
+		local hit = Blk(m, Vector3.new(8, 3, 8), x, z, top, Color3.new(1, 1, 1), {Name = "Pedestal", Transparency = 1, CanCollide = false})
+		prompt(hit, "Hatch", egg.Name .. " · " .. Config.Format(egg.Cost) .. " Trophies", {LobbyAction = "Hatch", EggId = eggId})
+		local src = eggAssets and eggAssets:FindFirstChild(eggId)
+		if src then
+			placeMesh(m, src, x, z, top, 7.6, 180, 10.5).Name = "EggModel"
+			if eggId == "Summoning" then -- Flame egg: real flames around the chained rock egg (concept sheet)
+				local f = Instance.new("Fire"); f.Size = 7; f.Heat = 7; f.Color = C(255, 110, 30); f.SecondaryColor = C(255, 214, 80); f.Parent = hit
+			end
+		else
+			local e = P({Name = "Egg", Shape = Enum.PartType.Ball, Size = Vector3.new(5, 5, 5), CFrame = CFrame.new(W(x, z, top + 3.4)), Color = egg.Color, Parent = m})
+			local mesh = Instance.new("SpecialMesh"); mesh.MeshType = Enum.MeshType.Sphere; mesh.Scale = Vector3.new(1, 1.28, 1); mesh.Parent = e
+		end
+		local l = Instance.new("PointLight"); l.Color = glowCol; l.Range = 9; l.Brightness = 0.7; l.Shadows = false; l.Parent = hit
+		if i >= n - 1 then beam(m, x, z + 4.5, 3, egg.Color) end
+		local bb = billboard(anchor(m, x, z, top + 12.5), Vector2.new(7.4, 3.4), 0, 70, "Card")
 		text(bb, "STAGE " .. egg.Stage, UDim2.fromScale(0.1, 0), UDim2.fromScale(0.8, 0.26), Color3.new(1, 1, 1), 2)
 		text(bb, string.upper(egg.Name), UDim2.fromScale(0, 0.26), UDim2.fromScale(1, 0.38), egg.Color:Lerp(Color3.new(1, 1, 1), 0.35), 3)
 		icon(bb, "Trophy", UDim2.fromScale(0.22, 0.66), UDim2.fromScale(0.16, 0.32))

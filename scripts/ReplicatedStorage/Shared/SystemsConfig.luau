@@ -77,12 +77,14 @@ local eggPets = {
 		{pet("SixPathsBeast", "Six Paths Beast", "Secret", 3000000, "beast", C(30, 20, 40), C(220, 160, 255)), 2},
 	},
 }
+-- display names (owner concept sheet, issue #14); ids stay the same so saves/odds are untouched
+local EGG_DISPLAY = {Ninja = "Leaf", Sakura = "Blossom", Desert = "Desert", Forest = "Storm", Lightning = "Shadow", Summoning = "Flame", Celestial = "Spirit", Divine = "Mythic"}
 S.Eggs = {} :: {[string]: Egg}
 for _, id in S.EggOrder do
 	local stage = eggStages[id]
 	local odds = {}
 	for _, row in eggPets[id] do table.insert(odds, {Pet = row[1], Chance = row[2]}) end
-	S.Eggs[id] = {Id = id, Name = id .. " Egg", Stage = stage, Cost = math.max(25, Config.Stages[stage].Trophies * 15), Color = eggColors[id], Odds = odds}
+	S.Eggs[id] = {Id = id, Name = (EGG_DISPLAY[id] or id) .. " Egg", Stage = stage, Cost = math.max(25, Config.Stages[stage].Trophies * 15), Color = eggColors[id], Odds = odds}
 end
 S.MaxPetsOwned = 60
 S.BasePetSlots = 3

@@ -165,6 +165,23 @@ function M.Init(c: any)
 				halo:PivotTo(base * CFrame.Angles(0, t * 0.9, 0) * CFrame.new(0, math.sin(t * 2) * 0.4, 0))
 			end)
 		end
+		-- eggs slowly turn and bob on their pedestals (client-only visual)
+		local spinners: {{any}} = {}
+		for _, d in lobby:GetDescendants() do
+			if d:IsA("Model") and d:GetAttribute("Spin") then table.insert(spinners, {d, d:GetPivot()}) end
+		end
+		if #spinners > 0 then
+			local t = 0
+			RunService.RenderStepped:Connect(function(dt)
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if not root or (root.Position - spinners[1][2].Position).Magnitude > 300 then return end
+				t += dt
+				for i, s in spinners do
+					s[1]:PivotTo(s[2] * CFrame.new(0, math.sin(t * 1.6 + i) * 0.35, 0) * CFrame.Angles(0, t * 0.6, 0))
+				end
+			end)
+		end
 		local boardTick = 0
 		while lobby.Parent do
 			if showcase then

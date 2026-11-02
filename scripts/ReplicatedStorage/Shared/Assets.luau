@@ -41,4 +41,13 @@ Assets.JutsuIcon = {
 function Assets.Icon(name: string?): string
 	return (name and Assets.Icons[name]) or ""
 end
+-- Hand sign icons (owner-supplied concept sheet, cropped 256px). One per sign; used on the showcase,
+-- Signs menu and the ATTACK/E/R buttons (the equipped sign's icon is the shared emblem motif).
+Assets.SignIcons = {
+	Tiger = "rbxassetid://99591454940817", Ram = "rbxassetid://87059973075909", Snake = "rbxassetid://99148539706051",
+	Rat = "rbxassetid://73540697854711", Ox = "rbxassetid://122285163127078", Hare = "rbxassetid://79240606121292",
+	Horse = "rbxassetid://113152008918915", Boar = "rbxassetid://75106189193017", Dog = "rbxassetid://133630291737514",
+	Bird = "rbxassetid://94440236306141", Monkey = "rbxassetid://116319479099475", Dragon = "rbxassetid://97736950766886",
+	Advanced = "rbxassetid://100162624932781", Forbidden = "rbxassetid://136928143422435",
+}
 return Assets

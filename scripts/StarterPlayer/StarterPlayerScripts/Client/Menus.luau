@@ -8,6 +8,7 @@ local SC = require(ReplicatedStorage.Shared.SystemsConfig)
 local U = require(script.Parent.UIKit)
 local Looks = require(script.Parent.Looks)
 
+local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets"))
 local M = {}
 local ctx: any
 local player = Players.LocalPlayer
@@ -124,7 +125,12 @@ builders.Signs = function(parent)
 		local s = Config.HandSigns[id]
 		local owned = unlocked[id] == true
 		local f = card(parent, owned and U.shade(s.Color, 0.85) or C(70, 70, 85), i)
-		label(f, (owned and s.Emblem .. " " or "\u{1F512} ") .. string.upper(s.Name), UDim2.fromOffset(8, 6), UDim2.new(1, -16, 0, 26), nil, nil, 2.5)
+		local iconId = AssetsMod.SignIcons and AssetsMod.SignIcons[id]
+		if iconId then
+			local img = U.new("ImageLabel", {Image = iconId, BackgroundTransparency = 1, Size = UDim2.fromOffset(30, 30), Position = UDim2.fromOffset(6, 4), ImageTransparency = owned and 0 or 0.35, Parent = f})
+			U.corner(6).Parent = img
+		end
+		label(f, (owned and "" or "\u{1F512} ") .. string.upper(s.Name), UDim2.fromOffset(iconId and 40 or 8, 6), UDim2.new(1, iconId and -48 or -16, 0, 26), nil, nil, 2.5)
 		label(f, "x" .. fmt(s.Multiplier) .. " TRAINING", UDim2.fromOffset(8, 32), UDim2.new(1, -16, 0, 18), C(255, 235, 90))
 		local je, jr = Config.Jutsu[s.E], Config.Jutsu[s.R]
 		for k, j in {je, jr} do
