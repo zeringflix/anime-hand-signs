@@ -115,6 +115,10 @@ local function onPrompt(prompt: ProximityPrompt)
 		local eggId = prompt:GetAttribute("EggId")
 		local res = Menus.Act("Hatch", eggId)
 		if res and res.ok and ctx.HatchAnimation then ctx.HatchAnimation(eggId, res.pet) end
+	elseif action == "Pass" then
+		-- Robux training zone: server prompts the real game pass (or answers "Not available yet" while Id = 0)
+		local key = prompt:GetAttribute("Pass")
+		if typeof(key) == "string" then Menus.Act("BuyPass", key) end
 	elseif action == "Menu" then
 		local menu = prompt:GetAttribute("Menu")
 		if typeof(menu) == "string" then Menus.Open(menu) end

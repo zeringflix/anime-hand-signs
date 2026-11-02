@@ -62,6 +62,7 @@ function GameService.RebirthMultiplier(data: any): number
 	return 1 + data.Rebirths * 0.75
 end
 GameService.UpgradeLevel = function(data: any, id: string): number return data.Upgrades[id] or 0 end
+GameService.HasPass = function(_player: Player, _key: string): boolean return false end -- SystemsService replaces (real game-pass ownership)
 GameService.TrophyBonus = function(_player: Player, _data: any): number return 1 end -- SystemsService replaces (passes)
 GameService.SnapshotExtras = {} :: {(Player, any, any) -> ()}
 
@@ -283,7 +284,7 @@ GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player,
 end)
 
 -- lobby training stations (issue #14): inside a station Zone, training is multiplied if Rebirths >= requirement
-function GameService.StationMultiplier(data: any, pos: Vector3): number
+function GameService.StationMultiplier(player: Player, data: any, pos: Vector3): number
 	local lobby = workspace:FindFirstChild("Lobby")
 	local folder = lobby and lobby:FindFirstChild("TrainingStations")
 	if not folder then return 1 end
@@ -297,7 +298,8 @@ function GameService.StationMultiplier(data: any, pos: Vector3): number
 			local lp = zone.CFrame:PointToObjectSpace(pos)
 			local h = zone.Size / 2
 			if math.abs(lp.X) <= h.X and math.abs(lp.Y) <= h.Y and math.abs(lp.Z) <= h.Z then
-				return (data.Rebirths or 0) >= st.Rebirths and st.Mult or 1
+				if st.Pass then return GameService.HasPass(player, st.Pass) and st.Mult or 1 end
+				return (data.Rebirths or 0) >= (st.Rebirths or 0) and st.Mult or 1
 			end
 		end
 	end
@@ -320,7 +322,7 @@ task.spawn(function()
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
 				player:SetAttribute("InLobby", x < -Config.StageLength / 2)
-				local okZ, zm = pcall(GameService.StationMultiplier, data, root.Position)
+				local okZ, zm = pcall(GameService.StationMultiplier, player, data, root.Position)
 				zm = (okZ and x < -Config.StageLength / 2) and zm or 1
 				if player:GetAttribute("ZoneMult") ~= zm then player:SetAttribute("ZoneMult", zm) end
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)

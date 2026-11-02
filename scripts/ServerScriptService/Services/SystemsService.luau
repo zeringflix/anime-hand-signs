@@ -54,6 +54,7 @@ GameService.MultiplierProviders.Passes = function(p, data)
 	return m
 end
 SystemsService.HasPass = hasPass
+GameService.HasPass = hasPass
 GameService.TrophyBonus = function(p, data)
 	local m = 1
 	if (data and data.TrophyBoostUntil or 0) > os.time() then m *= 2 end

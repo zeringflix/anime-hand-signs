@@ -156,6 +156,10 @@ S.GamePasses = {
 	ExtraPets = {Name = "+3 Pet Slots", Id = 0},
 	VIP = {Name = "VIP (+25% everything)", Id = 0},
 	AutoClicker = {Name = "OP Auto Clicker (5 trains/sec)", Id = 0},
+	ZoneGoldenDojo = {Name = "Golden Dojo (x8 zone)", Id = 0},
+	ZoneThunderDome = {Name = "Thunder Dome (x25 zone)", Id = 0},
+	ZoneDragonGate = {Name = "Dragon Gate (x50 zone)", Id = 0},
+	ZoneSageThrone = {Name = "Sage Throne (x250 zone)", Id = 0},
 }
 S.DevProducts = {
 	Boost15 = {Name = "2x Hand Signs (15 min)", Id = 0},
@@ -167,22 +171,24 @@ S.DevProducts = {
 S.FreeAuto = {ActiveSeconds = 180, CooldownSeconds = 420, TrainsPerSecond = 2}
 S.OPAutoTrainsPerSecond = 5
 
--- Lobby training stations (issue #14, +1 Anime Eyes-style "X.. CHAKRA" field -> "X.. HAND SIGNS").
--- Standing inside a station's zone multiplies training; gate = Rebirths (no Robux products).
--- PROPOSED DEFAULTS — owner to balance. Applied server-side by GameService.StationMultiplier.
+-- Lobby training stations (issue #14). Structure mirrors +1 Anime Eyes' World 1 field: 13 zones, 9 won with
+-- Rebirths, 4 Robux pass zones. Standing inside a zone multiplies training (GameService.StationMultiplier).
+-- Theme = a model in ServerStorage.LobbyAssets.Stations, else a part build in LobbyBuilder.
+-- PROPOSED DEFAULTS — owner to balance. Pass zones stay locked until real game passes exist (Id = 0 => "not available").
 S.TrainingStations = {
-	{Mult = 2, Rebirths = 0, Theme = "ring", Color = C(120, 255, 130)},
-	{Mult = 3, Rebirths = 1, Theme = "shrine", Color = C(255, 214, 90)},
-	{Mult = 5, Rebirths = 2, Theme = "crystal", Color = C(90, 220, 255)},
-	{Mult = 7, Rebirths = 3, Theme = "furnace", Color = C(255, 150, 60)},
-	{Mult = 10, Rebirths = 5, Theme = "gate", Color = C(255, 200, 80)},
-	{Mult = 15, Rebirths = 8, Theme = "dome", Color = C(140, 220, 255)},
-	{Mult = 20, Rebirths = 12, Theme = "portal", Color = C(190, 110, 255)},
-	{Mult = 25, Rebirths = 18, Theme = "blossom", Color = C(255, 170, 210)},
-	{Mult = 35, Rebirths = 25, Theme = "orb", Color = C(255, 80, 100)},
-	{Mult = 50, Rebirths = 35, Theme = "garden", Color = C(255, 120, 200)},
-	{Mult = 100, Rebirths = 50, Theme = "tower", Color = C(120, 200, 255)},
-	{Mult = 250, Rebirths = 80, Theme = "beam", Color = C(200, 120, 255)},
+	{Name = "Training Dummies", Mult = 2, Rebirths = 0, Theme = "Dummy", Color = C(120, 255, 130)},
+	{Name = "Boxing Ring", Mult = 3, Rebirths = 2, Theme = "shrine", Color = C(255, 214, 90)},
+	{Name = "Chakra Pool", Mult = 5, Rebirths = 6, Theme = "ChakraCircle", Color = C(90, 220, 255)},
+	{Name = "Fire Forge", Mult = 7, Rebirths = 12, Theme = "furnace", Color = C(255, 150, 60)},
+	{Name = "Golden Dojo", Mult = 8, Pass = "ZoneGoldenDojo", Robux = 99, Theme = "Dojo", Color = C(255, 210, 60)},
+	{Name = "Scroll Temple", Mult = 10, Rebirths = 20, Theme = "ScrollAltar", Color = C(255, 200, 80)},
+	{Name = "Storm Pagoda", Mult = 12, Rebirths = 28, Theme = "tower", Color = C(120, 200, 255)},
+	{Name = "Gravity Seal", Mult = 20, Rebirths = 36, Theme = "portal", Color = C(190, 110, 255)},
+	{Name = "Thunder Dome", Mult = 25, Pass = "ZoneThunderDome", Robux = 299, Theme = "dome", Color = C(140, 220, 255)},
+	{Name = "Crimson Altar", Mult = 35, Rebirths = 44, Theme = "orb", Color = C(255, 80, 100)},
+	{Name = "Void Totem", Mult = 40, Rebirths = 56, Theme = "Totem", Color = C(170, 120, 255)},
+	{Name = "Dragon Gate", Mult = 50, Pass = "ZoneDragonGate", Robux = 699, Theme = "ToriiArch", Color = C(255, 120, 120)},
+	{Name = "Sage Throne", Mult = 250, Pass = "ZoneSageThrone", Robux = 1800, Theme = "beam", Color = C(200, 120, 255)},
 }
 -- issue #13 guard: lobby-hub systems (Boss Shop / Fuse) are NOT built yet. These are
 -- empty STUBS so SystemsService handlers fail safely instead of erroring. Filled in by the lobby issue.

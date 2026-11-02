@@ -31,8 +31,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local B = {}
 
 -- lobby-local frame: +X runs from spawn toward the WORLDS portal / Stage 1. East floor edge meets Stage 1 (world x = -85).
-local ORIGIN = Vector3.new(-185, 0, 0)
-local HX, HZ = 100, 90 -- floor half extents
+local ORIGIN = Vector3.new(-235, 0, 0) -- east floor edge (local x = +150) meets Stage 1 at world x = -85
+local HX, HZ = 150, 130 -- floor half extents (expanded: room for 13 training zones + egg plaza)
 local C = Color3.fromRGB
 local PAL = {
 	Lav1 = C(196, 182, 238), Lav2 = C(183, 167, 228), Path = C(234, 228, 252), PathEdge = Color3.new(1, 1, 1),
@@ -165,8 +165,8 @@ local function buildArena()
 		Blk(g, Vector3.new(x1 - x0, 0.32, z1 - z0), (x0 + x1) / 2, (z0 + z1) / 2, -0.02, PAL.LimeEdge)
 		Blk(g, Vector3.new(x1 - x0 - 1.6, 0.36, z1 - z0 - 1.6), (x0 + x1) / 2, (z0 + z1) / 2, 0, PAL.Lime, merge(STUDS, {Name = "Lawn"}))
 	end
-	lawn(-92, 46, -20, -9.5); lawn(-92, 46, 9.5, 20)
-	lawn(48, 88, -64, -9.5); lawn(48, 88, 9.5, 64)
+	lawn(-140, 90, -20, -9.5); lawn(-140, 90, 9.5, 20)
+	lawn(92, 138, -84, -9.5); lawn(92, 138, 9.5, 84)
 end
 
 local function buildCliffs()
@@ -206,12 +206,12 @@ end
 
 ---------------------------------------------------------------- spawn + lantern-lined main path + WORLDS portal
 local function buildSpawnAndPath()
-	local pos = W(-84, 0, 1.0)
+	local pos = W(-130, 0, 1.0)
 	P({Name = "LobbySpawn", Size = Vector3.new(10, 1, 10), CFrame = CFrame.lookAt(pos, pos + Vector3.xAxis),
 		Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false})
 	local g = group("PathLanterns")
 	local k = 0
-	for x = -70, 82, 16 do
+	for x = -118, 132, 16 do
 		k += 1
 		lantern(g, x, -11.5, k % 3 == 0)
 		lantern(g, x, 11.5, k % 3 == 0)
@@ -220,7 +220,7 @@ end
 
 local function buildPortal()
 	local g = group("WorldsPortal")
-	local px = 93
+	local px = 143
 	for _, z in {-15, 15} do
 		Blk(g, Vector3.new(7, 2, 7), px, z, 0.3, PAL.Stone2)
 		Blk(g, Vector3.new(5, 30, 5), px, z, 2.3, PAL.Stone)
@@ -250,7 +250,7 @@ end
 local function buildSpecialPet()
 	local g = group("SpecialPet")
 	g:SetAttribute("Placeholder", "Visual only — no special-pet product/backend; no prompt.")
-	local x, z = 68, -34
+	local x, z = 114, -40
 	Disc(g, 16, 1.4, x, z, 1.7, PAL.Stone)
 	Disc(g, 13, 1, x, z, 2.4, C(255, 110, 40), {Material = Enum.Material.Neon, Transparency = 0.25})
 	for _, o in {{-6, -6}, {-6, 6}, {6, -6}, {6, 6}} do
@@ -279,7 +279,7 @@ end
 local function buildBoards()
 	local g = group("Leaderboards")
 	for i, d in {{"LifetimeHandSigns", "HAND SIGNS", 54}, {"Trophies", "TROPHIES", 70}, {"Stage", "STAGE", 86}} do
-		local x, z = d[3] - 8, -58 + (i == 2 and -2 or 0)
+		local x, z = 80 + i * 17, -74 + (i == 2 and -2 or 0)
 		local m = group("Board_" .. d[1], g)
 		m:SetAttribute("BoardKey", d[1])
 		local pos = W(x, z, 9)
@@ -299,7 +299,7 @@ end
 local function buildBossRift()
 	local g = group("BossRift")
 	g:SetAttribute("Placeholder", "Visual only — no timed boss backend; no prompt.")
-	local x, z = 68, 36
+	local x, z = 114, 44
 	Disc(g, 18, 0.6, x, z, 0.75, C(70, 30, 40))
 	local c = W(x, z, 14)
 	P({Size = Vector3.new(9, 9, 9), CFrame = CFrame.new(c) * CFrame.Angles(0, 0, math.rad(45)) * CFrame.Angles(math.rad(45), 0, 0), Color = C(70, 20, 90), Material = Enum.Material.Neon, Transparency = 0.15, CanCollide = false, Parent = g})
@@ -607,10 +607,8 @@ end
 local function buildStations()
 	local g = group("TrainingStations")
 	g:SetAttribute("Note", "ZoneMult applied server-side by GameService from SystemsConfig.TrainingStations (Rebirths gate).")
-	local cols, rows = {-62, -38, -14, 10, 34}, {-34, -55, -76}
-	-- generated station models from the owner's concept sheet (ServerStorage.LobbyAssets.Stations); the boxing
-	-- ring (X3), rune shrine (X20), orb altar, garden, pagoda and golden throne (X250) stay part-built (Anime Eyes refs)
-	local MESH_FOR = {[1] = "Dummy", [3] = "ChakraCircle", [4] = "Dojo", [5] = "ToriiArch", [6] = "ScrollAltar", [8] = "Totem"}
+	local cols, rows = {-118, -88, -58, -28, 2, 32, 62}, {-46, -82}
+	-- st.Theme names a generated concept model in ServerStorage.LobbyAssets.Stations, else a part build below
 	local stationAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Stations")
 	for i, st in SC.TrainingStations do
 		local row = math.ceil(i / #cols)
@@ -619,8 +617,7 @@ local function buildStations()
 		local m = group("Station" .. i, g)
 		m:SetAttribute("StationIndex", i)
 		local y0 = 0.6 + (row - 1) * 0.5
-		local meshName = MESH_FOR[i]
-		local src = meshName and stationAssets and stationAssets:FindFirstChild(meshName)
+		local src = stationAssets and stationAssets:FindFirstChild(st.Theme)
 		if src then
 			local top = plinth(m, x, z, y0, C(58, 54, 70))
 			placeMesh(m, src, x, z, top - 0.1, 12.8, 0, 13).Name = "StationModel"
@@ -628,20 +625,25 @@ local function buildStations()
 			local build = STATION_BUILD[st.Theme] or STATION_BUILD.crystal
 			build(m, x, z, y0, st.Color)
 		end
+		if st.Pass then -- Robux zone: gold aura floor + unlock prompt (game pass; locked until the owner creates it)
+			Blk(m, Vector3.new(18, 0.3, 18), x, z, y0 - 1.05, C(255, 200, 40), {Material = Enum.Material.Neon, Transparency = 0.25, CanCollide = false, Name = "PassGlow"})
+			local base = m:FindFirstChild("Base", true) :: BasePart?
+			if base then prompt(base, "Unlock", st.Name .. " (R$ " .. st.Robux .. ")", {LobbyAction = "Pass", Pass = st.Pass}) end
+		end
 		local zone = P({Name = "Zone", Size = Vector3.new(16, 12, 16), CFrame = CFrame.new(W(x, z, y0 + 6)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
 		zone:SetAttribute("StationIndex", i)
-		if st.Mult >= 50 then beam(m, x + 6.5, z - 6.5, y0 + 3, st.Color) end
+		if st.Mult >= 25 then beam(m, x + 6.5, z - 6.5, y0 + 3, st.Color) end
 		local bb = billboard(anchor(m, x, z, y0 + 16), Vector2.new(12, 4.6), 0, 130, "Card")
 		text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.52), st.Color, 4, "Mult")
-		if st.Rebirths > 0 then
-			icon(bb, "Rebirth", UDim2.fromScale(0.3, 0.54), UDim2.fromScale(0.16, 0.44))
-			text(bb, Config.Format(st.Rebirths), UDim2.fromScale(0.47, 0.55), UDim2.fromScale(0.3, 0.42), C(255, 90, 90), 4, "Price")
+		if st.Pass then
+			icon(bb, "Robux", UDim2.fromScale(0.26, 0.54), UDim2.fromScale(0.16, 0.44))
+			text(bb, tostring(st.Robux), UDim2.fromScale(0.43, 0.55), UDim2.fromScale(0.34, 0.42), C(255, 214, 60), 4, "Price")
 		else
 			icon(bb, "Rebirth", UDim2.fromScale(0.3, 0.54), UDim2.fromScale(0.16, 0.44))
-			text(bb, "0", UDim2.fromScale(0.47, 0.55), UDim2.fromScale(0.3, 0.42), C(120, 255, 130), 4, "Price")
+			text(bb, Config.Format(st.Rebirths or 0), UDim2.fromScale(0.47, 0.55), UDim2.fromScale(0.3, 0.42), (st.Rebirths or 0) > 0 and C(255, 90, 90) or C(120, 255, 130), 4, "Price")
 		end
 	end
-	local s = anchor(g, -14, -24, 4, "SignAnchor")
+	local s = anchor(g, -62, -28, 4, "SignAnchor")
 	local bb = billboard(s, Vector2.new(16, 2.4), 0, 80, "Card")
 	text(bb, "TRAINING ZONES · stand inside to multiply HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 1), Color3.new(1, 1, 1), 3)
 end
@@ -650,34 +652,29 @@ end
 local function buildShowcase()
 	local g = group("SignShowcase")
 	g:SetAttribute("Note", "Pad colours/text are per-player, set by the client Lobby module from server state.")
-	local x0, dx = -72, 12.5
-	Blk(g, Vector3.new(7 * dx + 6, 1, 13), x0 + 3 * dx, 34, -0.4, PAL.Stone, {Name = "FrontPlatform"})
-	Blk(g, Vector3.new(7 * dx + 6, 6.4, 13), x0 + 3 * dx, 47, -0.4, PAL.Stone2, {Name = "BackPlatform"}) -- raised tier like the reference
-	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, 27.6, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
+	local x0, dx = -112, 14
+	Blk(g, Vector3.new(7 * dx + 6, 1, 13), x0 + 3 * dx, 36, -0.4, PAL.Stone, {Name = "FrontPlatform"})
+	Blk(g, Vector3.new(7 * dx + 6, 6.4, 13), x0 + 3 * dx, 50, -0.4, PAL.Stone2, {Name = "BackPlatform"}) -- raised tier like the reference
+	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, 29.6, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
 	for i, id in Config.HandSignOrder do
 		local s = Config.HandSigns[id]
 		local back = i > 7
 		local k = back and i - 8 or i - 1
-		local x, z = x0 + k * dx, back and 47 or 34
+		local x, z = x0 + k * dx, back and 50 or 36
 		local top = back and 6 or 0.6
 		local m = group("Pad_" .. id, g)
 		m:SetAttribute("SignId", id)
 		local pad = Blk(m, Vector3.new(8, 0.5, 8), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
 		prompt(pad, "Buy", s.Name, {LobbyAction = "Sign", SignId = id})
-		-- floating hand-sign icon tile (owner icon sheet) in a gold frame, facing the path
+		-- floating transparent hand-sign art only (no tile, frame or backing), like the reference's floating eyes
 		local iconId = Assets.SignIcons and Assets.SignIcons[id]
-		local cy = top + 11
-		P({Name = "Frame", Size = Vector3.new(6.2, 6.2, 0.5), CFrame = CFrame.new(W(x, z + 0.3, cy)), Color = PAL.Gold, Material = Enum.Material.Neon, CanCollide = false, Parent = m})
-		local tile = P({Name = "Orb", Size = Vector3.new(5.6, 5.6, 0.6), CFrame = CFrame.new(W(x, z, cy)), Color = s.Color, CanCollide = false, Parent = m})
-		local sg = Instance.new("SurfaceGui"); sg.Name = "Emblem"; sg.Face = Enum.NormalId.Front; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		sg.PixelsPerStud = 46; sg.LightInfluence = 0; sg.Parent = tile
+		local art = billboard(anchor(m, x, z, top + 11, "ArtAnchor"), Vector2.new(7.5, 7.5), 0, 140, "Emblem")
 		if iconId then
-			local img = Instance.new("ImageLabel"); img.BackgroundTransparency = 1; img.Image = iconId; img.Size = UDim2.fromScale(1, 1); img.Parent = sg
-			local cr = Instance.new("UICorner"); cr.CornerRadius = UDim.new(0.12, 0); cr.Parent = img
+			local img = Instance.new("ImageLabel"); img.Name = "Art"; img.BackgroundTransparency = 1; img.Image = iconId
+			img.ScaleType = Enum.ScaleType.Fit; img.Size = UDim2.fromScale(1, 1); img.Parent = art
 		else
-			text(sg, s.Emblem, UDim2.fromScale(0.1, 0.1), UDim2.fromScale(0.8, 0.8), Color3.new(1, 1, 1), 0)
+			text(art, "?", UDim2.fromScale(0.2, 0.1), UDim2.fromScale(0.6, 0.8), Color3.new(1, 1, 1), 5) -- no approved art yet
 		end
-		Blk(m, Vector3.new(0.5, cy - top - 3.1, 0.5), x, z + 0.4, top, PAL.Gold)
 		local a = anchor(m, x, z, top + 5.2)
 		local bb = billboard(a, Vector2.new(8.4, 4.6), 0, 75, "Card")
 		text(bb, s.Name, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.32), s.Color:Lerp(Color3.new(1, 1, 1), 0.45), 3, "SignName")
@@ -691,24 +688,24 @@ end
 ---------------------------------------------------------------- egg walkway (south): Fuse Machine + Boss Shop first, then eggs ascending
 local function buildEggs()
 	local g = group("EggHatchery")
-	Blk(g, Vector3.new(170, 0.4, 16), 2, 72, 0, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
-	for _, z in {63.5, 80.5} do Blk(g, Vector3.new(170, 0.45, 1.2), 2, z, 0, PAL.LimeEdge) end
+	Blk(g, Vector3.new(270, 0.4, 20), 10, 100, 0, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
+	for _, z in {89.5, 110.5} do Blk(g, Vector3.new(270, 0.45, 1.2), 10, z, 0, PAL.LimeEdge) end
 	local n = #SC.EggOrder
 	local eggAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Eggs")
 	for i, eggId in SC.EggOrder do
 		local egg = SC.Eggs[eggId]
-		local x, z = -36 + (i - 1) * (114 / (n - 1)), 74
+		local x, z = -56 + (i - 1) * (190 / (n - 1)), 100
 		local m = group("Egg_" .. eggId, g)
 		local glowCol = egg.Color:Lerp(Color3.new(1, 1, 1), 0.2)
-		Disc(m, 10, 0.8, x, z, 1.1, PAL.Stone)
-		Disc(m, 9.2, 0.82, x, z, 1.12, glowCol, {Material = Enum.Material.Neon, Transparency = 0.35})
-		Disc(m, 8, 0.86, x, z, 1.16, PAL.Stone2, STUDS)
+		Disc(m, 14, 0.8, x, z, 1.1, PAL.Stone)
+		Disc(m, 13, 0.82, x, z, 1.12, glowCol, {Material = Enum.Material.Neon, Transparency = 0.35})
+		Disc(m, 11.4, 0.86, x, z, 1.16, PAL.Stone2, STUDS)
 		local top = 1.16
 		local hit = Blk(m, Vector3.new(8, 3, 8), x, z, top, Color3.new(1, 1, 1), {Name = "Pedestal", Transparency = 1, CanCollide = false})
 		prompt(hit, "Hatch", egg.Name .. " · " .. Config.Format(egg.Cost) .. " Trophies", {LobbyAction = "Hatch", EggId = eggId})
 		local src = eggAssets and eggAssets:FindFirstChild(eggId)
 		if src then
-			placeMesh(m, src, x, z, top, 7.6, 180, 10.5).Name = "EggModel"
+			placeMesh(m, src, x, z, top, 10.5, 180, 14).Name = "EggModel"
 			if eggId == "Summoning" then -- Flame egg: real flames around the chained rock egg (concept sheet)
 				local f = Instance.new("Fire"); f.Size = 7; f.Heat = 7; f.Color = C(255, 110, 30); f.SecondaryColor = C(255, 214, 80); f.Parent = hit
 			end
@@ -718,7 +715,7 @@ local function buildEggs()
 		end
 		local l = Instance.new("PointLight"); l.Color = glowCol; l.Range = 9; l.Brightness = 0.7; l.Shadows = false; l.Parent = hit
 		if i >= n - 1 then beam(m, x, z + 4.5, 3, egg.Color) end
-		local bb = billboard(anchor(m, x, z, top + 12.5), Vector2.new(7.4, 3.4), 0, 70, "Card")
+		local bb = billboard(anchor(m, x, z, top + 16), Vector2.new(9, 4.2), 0, 90, "Card")
 		text(bb, "STAGE " .. egg.Stage, UDim2.fromScale(0.1, 0), UDim2.fromScale(0.8, 0.26), Color3.new(1, 1, 1), 2)
 		text(bb, string.upper(egg.Name), UDim2.fromScale(0, 0.26), UDim2.fromScale(1, 0.38), egg.Color:Lerp(Color3.new(1, 1, 1), 0.35), 3)
 		icon(bb, "Trophy", UDim2.fromScale(0.22, 0.66), UDim2.fromScale(0.16, 0.32))
@@ -729,23 +726,23 @@ local function buildEggs()
 		local m = group(name, g)
 		m:SetAttribute("Placeholder", "Visual only — backend not built; no prompt or remote is exposed.")
 		build(m)
-		local bb = billboard(anchor(m, x, 74, 13), Vector2.new(10, 3.2), 0, 90, "Card")
+		local bb = billboard(anchor(m, x, 100, 13), Vector2.new(10, 3.2), 0, 90, "Card")
 		text(bb, title, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.58), C(255, 150, 230), 4)
 		text(bb, "COMING SOON", UDim2.fromScale(0.15, 0.6), UDim2.fromScale(0.7, 0.38), C(255, 120, 120), 3)
 	end
-	placeholder("BossShop", -76, "BOSS SHOP", function(m)
-		Blk(m, Vector3.new(12, 1, 8), -76, 74, 0.3, PAL.Stone)
-		Blk(m, Vector3.new(10, 4, 4), -76, 72, 1.3, C(200, 50, 46))
-		for _, s in {-5, 5} do Blk(m, Vector3.new(0.9, 9, 0.9), -76 + s, 76, 1.3, PAL.Ink) end
-		Blk(m, Vector3.new(13, 1.2, 7), -76, 74, 10.3, C(200, 50, 46)); Blk(m, Vector3.new(11, 1, 5), -76, 74, 11.5, PAL.Ink)
-		Blk(m, Vector3.new(8, 1.8, 0.3), -76, 70.6, 7.5, C(255, 214, 90), {Material = Enum.Material.Neon})
+	placeholder("BossShop", -112, "BOSS SHOP", function(m)
+		Blk(m, Vector3.new(12, 1, 8), -112, 100, 0.3, PAL.Stone)
+		Blk(m, Vector3.new(10, 4, 4), -112, 98, 1.3, C(200, 50, 46))
+		for _, s in {-5, 5} do Blk(m, Vector3.new(0.9, 9, 0.9), -112 + s, 102, 1.3, PAL.Ink) end
+		Blk(m, Vector3.new(13, 1.2, 7), -112, 100, 10.3, C(200, 50, 46)); Blk(m, Vector3.new(11, 1, 5), -112, 100, 11.5, PAL.Ink)
+		Blk(m, Vector3.new(8, 1.8, 0.3), -112, 96.6, 7.5, C(255, 214, 90), {Material = Enum.Material.Neon})
 	end)
-	placeholder("FuseMachine", -56, "FUSE MACHINE", function(m)
-		Blk(m, Vector3.new(10, 1.4, 10), -56, 74, 0.3, PAL.Stone)
-		for _, o in {{-4, -4}, {-4, 4}, {4, -4}, {4, 4}} do Blk(m, Vector3.new(1.4, 3, 1.4), -56 + o[1], 74 + o[2], 1.7, C(240, 240, 250)) end
-		Blk(m, Vector3.new(5, 6, 5), -56, 74, 1.7, C(110, 60, 200), {Material = Enum.Material.Glass, Transparency = 0.35})
-		P({Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3), CFrame = CFrame.new(W(-56, 74, 4.7)), Color = C(220, 120, 255), Material = Enum.Material.Neon, CanCollide = false, Parent = m})
-		Blk(m, Vector3.new(6, 1, 6), -56, 74, 7.7, C(240, 240, 250))
+	placeholder("FuseMachine", -86, "FUSE MACHINE", function(m)
+		Blk(m, Vector3.new(10, 1.4, 10), -86, 100, 0.3, PAL.Stone)
+		for _, o in {{-4, -4}, {-4, 4}, {4, -4}, {4, 4}} do Blk(m, Vector3.new(1.4, 3, 1.4), -86 + o[1], 100 + o[2], 1.7, C(240, 240, 250)) end
+		Blk(m, Vector3.new(5, 6, 5), -86, 100, 1.7, C(110, 60, 200), {Material = Enum.Material.Glass, Transparency = 0.35})
+		P({Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3), CFrame = CFrame.new(W(-86, 100, 4.7)), Color = C(220, 120, 255), Material = Enum.Material.Neon, CanCollide = false, Parent = m})
+		Blk(m, Vector3.new(6, 1, 6), -86, 100, 7.7, C(240, 240, 250))
 	end)
 end
 
@@ -767,7 +764,7 @@ local function openStage1()
 	local sp = workspace:FindFirstChild("SpawnLocation") :: SpawnLocation?
 	if sp then
 		if sp:GetAttribute("OriginalCFrame") == nil then sp:SetAttribute("OriginalCFrame", sp.CFrame) end
-		sp.CFrame = CFrame.lookAt(W(-84, 0, 0.6), W(0, 0, 0.6))
+		sp.CFrame = CFrame.lookAt(W(-130, 0, 0.6), W(0, 0, 0.6))
 		sp.Transparency = 1; sp.CanCollide = false
 		local d = sp:FindFirstChildOfClass("Decal"); if d then d.Transparency = 1 end
 	end

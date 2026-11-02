@@ -116,3 +116,11 @@ Anything not visible in these shots is marked **UNVERIFIED** and placed by infer
 | Egg walkway headed by Boss Shop + Fuse Machine, beams on top eggs | PASS (`v2_egg_walkway.jpg` vs `ref_egg_walkway.png`) |
 | Exact relative side placement of field / showcase / eggs | UNVERIFIED (inferred; needs owner confirmation or more reference shots) |
 | Front / back / left / right / overhead *reference* captures | NOT AVAILABLE (owner can supply) |
+
+
+## Research update (2026-11-02, lobby v4)
+
+- Gameplay videos could not be watched from this environment (YouTube serves a bot-check page to automated clients; image hosts such as r2.bloxron.com are blocked by the network allowlist). The owner supplied the five bloxron reference screenshots manually.
+- [game.guide training table](https://www.game.guide/1-anime-eyes/training): World 1 has **13 training areas**: 9 priced in rebirths (0, 2, 6, 12, 20, 28, 36, 44, 56) and **4 game-pass zones** (x8 99 R$, x25 299 R$, x50 699 R$, x250 1800 R$). Our lobby now mirrors that structure with original names and builds; pass zones read `SC.GamePasses.Zone*` (Id 0 until the owner creates them -> "Not available yet").
+- [game.guide eggs](https://www.game.guide/1-anime-eyes/eggs): the lobby sells a cheap trophy egg (10), a second trophy egg (400) and two Robux eggs (79 / 149 R$). Robux eggs were **not** added (no paid items without approval).
+- Arena expanded to 300 x 260 studs: 7x2 training field (north), 2x7 showcase with floating transparent hand art (south of path), 8-egg plaza with Boss Shop + Fuse Machine (south edge), portal / special pet / leaderboards / boss rift unchanged in relation to the WORLDS portal.
