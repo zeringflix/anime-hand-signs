@@ -552,7 +552,7 @@ function SystemsService.Start()
 		end
 	end)
 
-	if not RunService:IsStudio() or game.PlaceId ~= 0 then startLeaderboards() end
+	if not RunService:IsStudio() then startLeaderboards() end -- Studio playtests must never write production OrderedDataStores
 end
 
 return SystemsService

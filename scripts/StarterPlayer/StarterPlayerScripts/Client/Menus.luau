@@ -322,6 +322,13 @@ builders.Stages = function(parent)
 	local p = prof() or {}
 	local done = p.Completed or {}
 	local highest = attr("Highest") or 1
+	do -- lobby hub (issue #14)
+		local f = card(parent, C(236, 128, 56), 0)
+		label(f, "\u{26E9} LOBBY", UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
+		label(f, "SHINOBI PLAZA", UDim2.fromOffset(6, 28), UDim2.new(1, -12, 0, 18), C(255, 240, 220), nil, 1.5)
+		local b = U.button({Text = "GO", Color = C(70, 210, 90), Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0, 6, 1, -34), Parent = f})
+		b.MouseButton1Click:Connect(function() ctx.TeleportStage:FireServer(0); M.Close() end)
+	end
 	for i, st in Config.Stages do
 		local open = i <= highest
 		local f = card(parent, open and U.shade(st.Gate, 0.75) or C(60, 60, 72), i)
