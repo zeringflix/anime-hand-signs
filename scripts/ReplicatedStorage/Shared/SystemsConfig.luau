@@ -156,6 +156,7 @@ S.GamePasses = {
 	ExtraPets = {Name = "+3 Pet Slots", Id = 0},
 	VIP = {Name = "VIP (+25% everything)", Id = 0},
 	AutoClicker = {Name = "OP Auto Clicker (5 trains/sec)", Id = 0},
+	DoubleWinPad = {Name = "x2 Win Pad", Id = 0},
 	ZoneGoldenDojo = {Name = "Golden Dojo (x8 zone)", Id = 0},
 	ZoneThunderDome = {Name = "Thunder Dome (x25 zone)", Id = 0},
 	ZoneDragonGate = {Name = "Dragon Gate (x50 zone)", Id = 0},

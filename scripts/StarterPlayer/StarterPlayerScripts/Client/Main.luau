@@ -351,6 +351,39 @@ Remotes.Profile.OnClientEvent:Connect(function(json: string)
 	if s ~= menuSig then menuSig = s; Menus.Refresh() end
 end)
 
+---------------------------------------------------------------- stage cleared: "collect your wins or keep going"
+local winChoice: Frame? = nil
+local function closeWinChoice()
+	if winChoice then winChoice:Destroy(); winChoice = nil end
+end
+local function showWinChoice(stage: number)
+	closeWinChoice()
+	local f = U.new("Frame", {Name = "WinChoice", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 96), Size = UDim2.fromOffset(560, 196),
+		BackgroundColor3 = C(74, 72, 94), ZIndex = 30, Parent = gui})
+	winChoice = f
+	U.corner(10).Parent = f
+	U.stroke(5, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = f
+	local head = U.new("Frame", {Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = C(70, 200, 60), ZIndex = 30, Parent = f})
+	U.corner(10).Parent = head
+	U.studs(head, 0.1, 30)
+	U.text({Text = "STAGE " .. stage .. " CLEARED!", Size = UDim2.new(1, -20, 1, -12), Position = UDim2.fromOffset(10, 6), Stroke = 4, ZIndex = 31, Parent = head})
+	local last = stage >= Config.StageCount
+	U.text({Text = last and "Collect your wins!" or "Collect your wins, or keep going to Stage " .. (stage + 1) .. "!",
+		Size = UDim2.new(1, -24, 0, 34), Position = UDim2.fromOffset(12, 66), Stroke = 3, ZIndex = 31, Parent = f})
+	local row = U.new("Frame", {Size = UDim2.new(1, -24, 0, 70), Position = UDim2.fromOffset(12, 112), BackgroundTransparency = 1, ZIndex = 31, Parent = f})
+	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 10), Parent = row})
+	local function btn(text: string, color: Color3, onClick: () -> ())
+		local b = U.button({Text = text, Color = color, Size = UDim2.new(last and 0.48 or 0.32, -6, 1, 0), Parent = row})
+		b.ZIndex = 32
+		b.MouseButton1Click:Connect(onClick)
+	end
+	btn("COLLECT WINS", U.GREEN, function() Menus.Act("ClaimWins", stage, false) end)
+	btn("x2 WINS", U.PURPLE, function() Menus.Act("ClaimWins", stage, true) end)
+	if not last then btn("KEEP GOING \u{25B6}", U.BLUE, function() closeWinChoice() end) end
+	U.pop(f, 0.7)
+	task.delay(15, function() if winChoice == f then closeWinChoice() end end)
+end
+
 Remotes.Notify.OnClientEvent:Connect(function(kind: string, payload: any)
 	if kind == "LevelUp" then
 		celebrate("LEVEL UP!", "Level " .. payload, C(255, 220, 60))
@@ -363,11 +396,14 @@ Remotes.Notify.OnClientEvent:Connect(function(kind: string, payload: any)
 			toast("Open HAND SIGNS to equip " .. s.Name, C(120, 255, 140))
 		end
 	elseif kind == "StageCleared" then
-		celebrate("STAGE CLEARED!", "Grab your Trophies on the pad!", C(120, 255, 120), payload.Stage < Config.StageCount and ("Stage " .. payload.Stage + 1 .. " unlocked") or "You beat the Divine Chakra Master!")
 		sfx("electronicpingshort.wav", 0.7, 1)
+		showWinChoice(payload.Stage)
 	elseif kind == "PadClaimed" then
-		toast("+" .. fmt(payload.Amount) .. " \u{1F3C6} Trophies!", C(255, 220, 80))
+		closeWinChoice()
+		toast("+" .. fmt(payload.Amount) .. " \u{1F3C6} Wins!" .. ((payload.Mult or 1) > 1 and "  (x2)" or "") .. "  Back to the lobby!", C(255, 220, 80))
 		sfx("electronicpingshort.wav", 0.5, 1.5)
+	elseif kind == "Toast" then
+		toast(tostring(payload), C(255, 200, 120))
 	elseif kind == "NoTarget" then
 		toast("No enemy in range for " .. tostring(payload), C(255, 160, 160))
 	elseif kind == "Cooldown" then

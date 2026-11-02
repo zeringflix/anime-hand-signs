@@ -378,6 +378,16 @@ function A.Leaderboards()
 	return {ok = true, boards = SystemsService.Boards}
 end
 
+-- "Collect your wins" popup buttons: identical to touching the stage's win pad (pending reward is server-side;
+-- the player must be standing in that stage)
+function A.ClaimWins(p, _data, stage, double)
+	if typeof(stage) ~= "number" then return {ok = false} end
+	stage = math.floor(stage)
+	if p:GetAttribute("InStage") ~= stage or p:GetAttribute("InLobby") then return {ok = false, msg = "Collect your wins in the stage"} end
+	local ok = if double == true then GameService.ClaimPadX2(p, stage) else GameService.ClaimPad(p, stage)
+	return {ok = ok}
+end
+
 function A.BuyPass(p, _data, key)
 	local gp = typeof(key) == "string" and SC.GamePasses[key]
 	if not gp or gp.Id == 0 then return {ok = false, msg = "Not available yet"} end

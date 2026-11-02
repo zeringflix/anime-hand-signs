@@ -239,17 +239,95 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 	GameService.Refresh(player)
 end
 
--- trophy pad: claim the stage-clear reward (once per clear)
-function GameService.ClaimPad(player: Player, stage: number)
+-- WIN PADS (owner request): after clearing a stage the player chooses: collect their wins on the pad (which
+-- sends them back to the lobby) or keep going to the next stage. Two pads per stage:
+--   TrophyPad   -> x1 stage reward, teleport to lobby
+--   TrophyPadX2 -> x2 stage reward (needs the "x2 Win Pad" game pass; prompts the pass otherwise), teleport to lobby
+-- The reward is pending per player per clear (server-side), so touching twice / both pads never pays twice.
+function GameService.ClaimPad(player: Player, stage: number, mult: number?): boolean
 	local pads = GameService.PendingPads[player]
 	local key = tostring(stage)
-	if not pads or not pads[key] then return end
+	if not pads or not pads[key] then return false end
 	pads[key] = nil
 	local st = Config.Stages[stage]
-	local amt = st.Trophies * 10
+	local amt = st.Trophies * 10 * (mult or 1)
 	GameService.AddTrophies(player, amt)
-	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt})
+	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt, Mult = mult or 1})
+	GameService.Refresh(player)
+	task.delay(0.6, function() -- short beat for the reward pop, then back to the hub
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and player.Parent then
+			root.CFrame = GameService.StageSpawnCFrame(0)
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
+	return true
 end
+
+local WIN_PAD_PASS = "DoubleWinPad"
+function GameService.ClaimPadX2(player: Player, stage: number): boolean
+	local pads = GameService.PendingPads[player]
+	if not pads or not pads[tostring(stage)] then return false end
+	if GameService.HasPass(player, WIN_PAD_PASS) then return GameService.ClaimPad(player, stage, 2) end
+	local SC = require(ReplicatedStorage.Shared.SystemsConfig)
+	local gp = SC.GamePasses[WIN_PAD_PASS]
+	if gp and gp.Id ~= 0 then
+		game:GetService("MarketplaceService"):PromptGamePassPurchase(player, gp.Id)
+	else
+		GameService.Notify(player, "Toast", "x2 Wins pad: not available yet - use the normal pad")
+	end
+	return false
+end
+
+-- runtime pad setup for every stage (adds the x2 pad beside the existing TrophyPad; stages are not rebuilt)
+local function padLabel(pad: BasePart, title: string, sub: string, color: Color3)
+	local old = pad:FindFirstChild("PadLabel")
+	if old then old:Destroy() end
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "PadLabel"; bb.Size = UDim2.fromScale(12, 4.6); bb.StudsOffsetWorldSpace = Vector3.new(0, 5, 0)
+	bb.MaxDistance = 140; bb.LightInfluence = 0; bb.AlwaysOnTop = false; bb.Parent = pad
+	for i, t in {{title, 0, 0.6, color}, {sub, 0.6, 0.4, Color3.new(1, 1, 1)}} do
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1; l.Font = Enum.Font.FredokaOne; l.TextScaled = true; l.Text = t[1]; l.TextColor3 = t[4]
+		l.Position = UDim2.fromScale(0, t[2]); l.Size = UDim2.fromScale(1, t[3])
+		local st = Instance.new("UIStroke"); st.Thickness = i == 1 and 4 or 3; st.Color = Color3.fromRGB(20, 16, 28); st.Parent = l
+		l.Parent = bb
+	end
+end
+local padDebounce: {[Player]: number} = {}
+local function buildWinPads()
+	local course = workspace:FindFirstChild("StageCourse")
+	if not course then return end
+	for _, stageModel in course:GetChildren() do
+		local pad = stageModel:FindFirstChild("TrophyPad") :: BasePart?
+		local stage = pad and (pad:GetAttribute("Stage") or tonumber(stageModel.Name:match("%d+")))
+		if pad and stage then
+			padLabel(pad, "COLLECT WINS", "Back to lobby", Color3.fromRGB(255, 214, 60))
+			if not stageModel:FindFirstChild("TrophyPadX2") then
+				local x2 = pad:Clone()
+				x2.Name = "TrophyPadX2"
+				for _, c in x2:GetChildren() do if not c:IsA("Attachment") then c:Destroy() end end
+				x2.Color = Color3.fromRGB(190, 90, 255)
+				x2.Material = Enum.Material.Neon
+				-- beside the normal pad, towards the path (the outer side runs into the cliff rim)
+				local side = pad.Position.Z >= 0 and 1 or -1
+				x2.CFrame = pad.CFrame - Vector3.new(0, 0, side * (pad.Size.Z + 3))
+				x2:SetAttribute("Stage", stage)
+				x2.Parent = stageModel
+				padLabel(x2, "x2 WINS", "Win Pad pass · back to lobby", Color3.fromRGB(220, 150, 255))
+				x2.Touched:Connect(function(hit)
+					local player = Players:GetPlayerFromCharacter(hit.Parent)
+					if not player then return end
+					if os.clock() - (padDebounce[player] or 0) < 1.5 then return end
+					padDebounce[player] = os.clock()
+					GameService.ClaimPadX2(player, stage)
+				end)
+			end
+		end
+	end
+end
+Players.PlayerRemoving:Connect(function(p) padDebounce[p] = nil end)
 
 function GameService.LobbySpawnCFrame(): CFrame?
 	local lobby = workspace:FindFirstChild("Lobby")
@@ -338,6 +416,7 @@ end)
 
 ---------------------------------------------------------------- lifecycle
 function GameService.Start()
+	task.spawn(buildWinPads)
 	-- Studio-only QA hook (never exists on live servers): ServerStorage.DevGrant:Invoke(player, {Stage=n, HandSigns=n, Trophies=n})
 	if game:GetService("RunService"):IsStudio() then
 		local bf = Instance.new("BindableFunction")
