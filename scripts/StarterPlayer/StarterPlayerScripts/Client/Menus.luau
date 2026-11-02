@@ -7,6 +7,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local SC = require(ReplicatedStorage.Shared.SystemsConfig)
 local U = require(script.Parent.UIKit)
 local Looks = require(script.Parent.Looks)
+local Sfx = require(script.Parent.Sfx)
 
 local AssetsMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets"))
 local M = {}
@@ -64,7 +65,8 @@ end
 local function act(kind: string, ...: any)
 	local ok, res = pcall(ctx.Action.InvokeServer, ctx.Action, kind, ...)
 	if not ok or type(res) ~= "table" then ctx.Toast("Try again", C(255, 90, 90)); return nil end
-	if res.ok == false and res.msg then ctx.Toast(res.msg, C(255, 90, 90)) end
+	if res.ok == false and res.msg then ctx.Toast(res.msg, C(255, 90, 90)); Sfx.Play("Error") end
+	if res.ok and (res.bought or res.what) then Sfx.Play(res.bought and "Buy" or "Reward") end
 	return res
 end
 M.Act = act
@@ -72,13 +74,13 @@ local function prof() return ctx.Profile end
 local function attr(n: string) return player:GetAttribute(n) end
 
 ---------------------------------------------------------------- panel shell (+1 Anime Eyes-style: studded coloured header, red X, slate body)
-local TAB_ICON = {Signs = "HandSign", Pets = "Egg", Auras = "Aura", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Places",
-	Rewards = "Gift", Shop = "Shop", Top = "Crown", Codes = "Codes", Settings = "Settings"}
-local TAB_TITLE = {Signs = "My Hand Signs", Pets = "Pets", Auras = "Auras", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Stages",
-	Rewards = "Quests & Rewards", Shop = "Store", Top = "Leaderboards", Codes = "Codes", Settings = "Settings"}
-local TAB_COLOR = {Signs = C(232, 62, 92), Pets = C(232, 62, 92), Auras = C(232, 62, 92), Shop = C(232, 62, 92),
-	Rebirth = C(150, 74, 230), Rewards = C(150, 74, 230), Codes = C(150, 74, 230), Settings = C(150, 74, 230), Top = C(150, 74, 230),
-	Upgrades = C(60, 180, 90), Stages = C(40, 160, 200)}
+local TAB_ICON = {Signs = "HandSign", Pets = "Pets", Auras = "Aura", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Places",
+	Rewards = "Gift", Quests = "Quests", Daily = "Daily", Gifts = "Gift", Shop = "Shop", Top = "Crown", Codes = "Codes", Settings = "Settings"}
+local TAB_TITLE = {Signs = "My Hand Signs", Pets = "Pets", Auras = "Auras", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Worlds",
+	Rewards = "Rewards", Quests = "Quests", Daily = "Daily Rewards", Gifts = "Free Gifts", Shop = "Store", Top = "Leaderboards", Codes = "Codes", Settings = "Settings"}
+local TAB_COLOR = {Signs = C(232, 62, 92), Pets = C(232, 62, 92), Auras = C(232, 62, 92), Shop = C(232, 62, 92), Gifts = C(232, 62, 92),
+	Rebirth = C(150, 74, 230), Rewards = C(150, 74, 230), Quests = C(255, 150, 40), Codes = C(150, 74, 230), Settings = C(150, 74, 230), Top = C(150, 74, 230),
+	Daily = C(60, 150, 240), Upgrades = C(60, 180, 90), Stages = C(150, 74, 230)}
 local headerIcon: ImageLabel
 local headerFrame: Frame
 local detail: Frame? = nil
@@ -96,6 +98,7 @@ function M.Init(c)
 	studs(headerFrame, 0.1, 38)
 	headerIcon = U.new("ImageLabel", {BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(62, 62), Position = UDim2.fromOffset(12, 5), ZIndex = 7, Parent = headerFrame})
 	titleLabel = label(headerFrame, "", UDim2.fromOffset(84, 10), UDim2.new(1, -170, 1, -20), nil, Enum.TextXAlignment.Left, 4)
+	titleLabel.Font = U.TitleFont
 	titleLabel.ZIndex = 7
 	local close = U.button({Text = "X", Color = C(235, 50, 80), Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -10, 0, 8), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 4, Parent = headerFrame})
 	close.ZIndex = 8
@@ -135,14 +138,30 @@ function M.Open(id: string)
 end
 
 function M.Close()
+	if root.Visible then Sfx.Play("Close") end
 	root.Visible = false
 	current = nil
 end
+
+-- live countdowns (Daily / Gifts) without rebuilding the panel every second
+local tickers: {() -> ()} = {}
+task.spawn(function()
+	while true do
+		task.wait(1)
+		if root and root.Visible then
+			for i = #tickers, 1, -1 do
+				local ok = pcall(tickers[i])
+				if not ok then table.remove(tickers, i) end
+			end
+		end
+	end
+end)
 
 function M.Refresh()
 	if not root.Visible or not current then return end
 	local y = body.CanvasPosition
 	for _, ch in body:GetChildren() do ch:Destroy() end
+	table.clear(tickers)
 	local b = builders[current]
 	if b then b(body) end
 	body.CanvasPosition = y
@@ -287,7 +306,9 @@ builders.Pets = function(parent)
 		local egg = SC.Eggs[eggId]
 		local open = highest >= egg.Stage
 		local f = card(eggsRow, open and U.shade(egg.Color, 0.8) or C(70, 70, 85), i)
-		label(f, string.upper(egg.Name), UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
+		local nameL = label(f, string.upper(egg.Name), UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
+		nameL.Font = U.TitleFont
+		if egg.Robux then U.rainbow(nameL) end
 		local eggShape = U.new("Frame", {Size = UDim2.fromOffset(44, 56), Position = UDim2.new(0, 10, 0, 34), BackgroundColor3 = egg.Color, Parent = f})
 		U.corner(26).Parent = eggShape
 		U.stroke(3).Parent = eggShape
@@ -296,7 +317,11 @@ builders.Pets = function(parent)
 			label(f, def.Name .. "  " .. row.Chance .. "%", UDim2.new(0, 60, 0, 30 + (k - 1) * 17), UDim2.new(1, -66, 0, 16), SC.RarityColor[def.Rarity] == SC.RarityColor.Secret and C(255, 255, 255) or SC.RarityColor[def.Rarity], Enum.TextXAlignment.Left, 1.5)
 		end
 		label(f, "+" .. SC.Pets[egg.Odds[1].Pet].Boost .. " to +" .. fmt(SC.Pets[egg.Odds[#egg.Odds].Pet].Boost) .. " boost", UDim2.fromOffset(6, 104), UDim2.new(1, -12, 0, 16), C(255, 235, 120))
-		if open then
+		if egg.Robux then
+			local b, bl = U.button({Text = "R$ " .. egg.Robux .. "  HATCH", Color = U.GREEN, Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 1, -52), Parent = f})
+			U.rainbow(bl)
+			b.MouseButton1Click:Connect(function() act("Hatch", eggId) end)
+		elseif open then
 			local b = U.button({Text = "\u{1F3C6} " .. fmt(egg.Cost) .. "  HATCH", Color = U.GREEN, Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 1, -52), Parent = f})
 			b.MouseButton1Click:Connect(function()
 				local res = act("Hatch", eggId)
@@ -471,31 +496,12 @@ local function rewardRow(parent, order, title, sub, btnText, enabled, onClick)
 	b.MouseButton1Click:Connect(function() if enabled then onClick() end end)
 end
 
-builders.Rewards = function(parent)
+---------------------------------------------------------------- QUESTS (stage milestones + offline earnings)
+builders.Quests = function(parent)
 	list(parent, 8)
 	local p = prof() or {}
-	local now = os.time()
-	local serverNow = p.ServerTime or now
-	local highest = attr("Highest") or 1
 	if (p.PendingOffline or 0) > 0 then
 		rewardRow(parent, 0, "WHILE YOU WERE AWAY", "+" .. fmt(p.PendingOffline) .. " Hand Signs", "CLAIM", true, function() act("ClaimOffline") end)
-	end
-	local left = (p.LastDaily or 0) + SC.DailyCooldown - serverNow
-	rewardRow(parent, 1, "DAILY REWARD (streak " .. (p.DailyStreak or 0) .. ")", "\u{1F3C6} " .. fmt(SC.DailyReward((p.DailyStreak or 0) + 1, highest)),
-		left <= 0 and "CLAIM" or string.format("%dh %dm", left // 3600, (left % 3600) // 60), left <= 0, function()
-			local r = act("ClaimDaily")
-			if r and r.ok then ctx.Toast("+" .. fmt(r.amount) .. " Trophies!", C(255, 220, 80)) end
-		end)
-	local played = os.time() - (p.SessionStart or os.time())
-	for i, row in SC.PlaytimeRewards do
-		local claimed = p.Playtime and (p.Playtime[i] or p.Playtime[tostring(i)])
-		local ready = played >= row.Minutes * 60
-		local remain = row.Minutes * 60 - played
-		rewardRow(parent, 1 + i, "PLAY " .. row.Minutes .. " MINUTES", "\u{1F3C6} " .. fmt(Config.Stages[highest].Trophies * row.Mult),
-			claimed and "CLAIMED" or (ready and "CLAIM" or string.format("%d:%02d", remain // 60, remain % 60)), ready and not claimed, function()
-				local r = act("ClaimPlaytime", i)
-				if r and r.ok then ctx.Toast("+" .. fmt(r.amount) .. " Trophies!", C(255, 220, 80)) end
-			end)
 	end
 	for i, stage in SC.MilestoneStages do
 		local key = tostring(stage)
@@ -507,22 +513,210 @@ builders.Rewards = function(parent)
 		end)
 	end
 end
+builders.Rewards = builders.Quests
 
----------------------------------------------------------------- SHOP
+-- reward row -> icon key + short text (Daily week + Free Gifts pools)
+local function rewardInfo(row: any): (string, string)
+	local st = Config.Stages[attr("Highest") or 1] or Config.Stages[1]
+	if row.Kind == "Trophies" then return "Trophy", "+" .. fmt(math.max(5, math.floor(st.Trophies * row.Mult))) end
+	if row.Kind == "Boost" then return "Boost", "x2 Signs " .. row.Minutes .. "m" end
+	if row.Kind == "TrophyBoost" then return "TrophyBoost", "x2 Trophies " .. row.Minutes .. "m" end
+	if row.Kind == "Hatch" then return "Egg", "x" .. (row.Count or 1) .. " " .. (SC.Eggs[row.Egg] and SC.Eggs[row.Egg].Name or "Egg") end
+	if row.Kind == "Aura" then return "Aura", SC.Auras[row.Aura] and SC.Auras[row.Aura].Name or "Aura" end
+	if row.Kind == "Pet" then return "Pets", SC.Pets[row.Pet] and SC.Pets[row.Pet].Name or "Pet" end
+	return "Gift", ""
+end
+local function iconImg(parent: Instance, key: string, size: UDim2, pos: UDim2, z: number?): ImageLabel
+	return U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon(key), ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = size, Position = pos, ZIndex = z or 7, Parent = parent})
+end
+-- studded rounded tile (reference reward cards): colour + darker rim
+local function tileCard(parent: Instance, color: Color3, size: UDim2, pos: UDim2, z: number?): Frame
+	local f = U.new("Frame", {BackgroundColor3 = color, Size = size, Position = pos, ZIndex = z or 6, Parent = parent})
+	U.corner(8).Parent = f
+	U.stroke(4, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = f
+	U.grad(Color3.new(1, 1, 1), C(215, 215, 215)).Parent = f
+	local sd = U.studs(f, 0.15, 26); sd.ZIndex = z or 6
+	return f
+end
+local function clockText(s: number): string
+	s = math.max(0, math.floor(s))
+	if s >= 3600 then return string.format("%d:%02d:%02d", s // 3600, (s % 3600) // 60, s % 60) end
+	return string.format("%d:%02d", s // 60, s % 60)
+end
+
+---------------------------------------------------------------- DAILY REWARDS (7-day week, +1 Anime Eyes layout)
+builders.Daily = function(parent)
+	local p = prof() or {}
+	local serverOffset = (p.ServerTime or os.time()) - os.time()
+	local nextDay = p.DailyNextDay or 1
+	local streak = p.DailyStreak or 0
+	local week = nextDay == 1 and (math.floor(streak / 7) + (streak > 0 and 1 or 0)) or (math.floor((streak - 1) / 7) + 1)
+	week = math.max(week, 1)
+	local holder = U.new("Frame", {Size = UDim2.new(1, -6, 0, 488), BackgroundTransparency = 1, Parent = parent})
+	local wk = U.title({Text = "WEEK " .. week, Size = UDim2.new(0.3, 0, 0, 34), Position = UDim2.new(0, 4, 0, -2), TextColor3 = C(255, 222, 60), ZIndex = 7, Parent = holder})
+	wk.TextXAlignment = Enum.TextXAlignment.Left
+	local timers = {}
+	for d = 1, 7 do
+		local row = SC.DailyWeek[d]
+		local big = d == 7
+		local col, rowI = (d - 1) % 3, (d - 1) // 3
+		local size = big and UDim2.new(0.24, 0, 0, 404) or UDim2.new(0.235, 0, 0, 194)
+		local pos = big and UDim2.new(0.755, 0, 0, 38) or UDim2.new(col * 0.25, 0, 0, 38 + rowI * 210)
+		local f = tileCard(holder, big and C(255, 255, 255) or C(70, 160, 245), size, pos)
+		if big then -- rainbow Day 7 card
+			local g = f:FindFirstChildOfClass("UIGradient"); if g then g:Destroy() end
+			local rg = U.new("UIGradient", {Rotation = 35, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 90, 90)), ColorSequenceKeypoint.new(0.25, C(255, 220, 70)),
+				ColorSequenceKeypoint.new(0.5, C(110, 240, 110)), ColorSequenceKeypoint.new(0.75, C(90, 170, 255)), ColorSequenceKeypoint.new(1, C(200, 110, 255))}), Parent = f})
+			local _ = rg
+		end
+		U.title({Text = "Day " .. d, Size = UDim2.new(1, -8, 0, big and 46 or 30), Position = UDim2.fromOffset(4, 4), ZIndex = 8, Parent = f})
+		local key, txt = rewardInfo(row)
+		if row.Kind == "Pet" then
+			local vp = petViewport(f, row.Pet, UDim2.new(1, -10, 0, 170), UDim2.fromOffset(5, 56)); vp.ZIndex = 8
+		else
+			iconImg(f, key, big and UDim2.fromOffset(150, 150) or UDim2.fromOffset(76, 76), UDim2.new(0.5, 0, 0, big and 140 or 78), 8)
+		end
+		local t = U.title({Text = txt, Size = UDim2.new(1, -8, 0, big and 64 or 24), Position = UDim2.new(0, 4, 0, big and 236 or 112), ZIndex = 8, Parent = f})
+		t.TextWrapped = true
+		local state = d < nextDay and "Claimed" or (d == nextDay and "Next" or "Later")
+		local b, bl = U.button({Text = state == "Claimed" and "CLAIMED" or ("DAY " .. d), Color = U.GREY, Size = UDim2.new(0.86, 0, 0, big and 60 or 40),
+			Position = UDim2.new(0.07, 0, 1, big and -74 or -48), Radius = 6, StrokeT = 3, Parent = f})
+		b.ZIndex = 9
+		bl.Font = U.TitleFont
+		if state == "Next" then
+			local function upd()
+				local left = (p.LastDaily or 0) + SC.DailyCooldown - (os.time() + serverOffset)
+				if left <= 0 then bl.Text = "CLAIM"; U.recolor(b, U.GREEN) else bl.Text = clockText(left); U.recolor(b, U.GREY) end
+			end
+			upd(); table.insert(timers, upd)
+			b.MouseButton1Click:Connect(function()
+				local r = act("ClaimDaily")
+				if r and r.ok then ctx.Celebrate("DAY " .. r.day .. "!", r.what, C(120, 220, 255)) end
+			end)
+		end
+	end
+	for _, f in timers do table.insert(tickers, f) end
+	-- skip: Robux product (Id 0 = not available yet), rainbow price like every Robux item
+	local dp = SC.DevProducts.DailyUnlockAll
+	local ub, ul = U.button({Text = "UNLOCK ALL  R$ " .. dp.Robux, Color = U.GREEN, Size = UDim2.new(0.42, 0, 0, 48), Position = UDim2.new(0.58, 0, 0, -4), Radius = 8, StrokeT = 3, Parent = holder})
+	ub.Position = UDim2.new(1, 0, 0, 450); ub.AnchorPoint = Vector2.new(1, 0); ub.Size = UDim2.new(0.4, 0, 0, 46)
+	ul.Font = U.TitleFont
+	U.rainbow(ul)
+	ub.MouseButton1Click:Connect(function() act("BuyProduct", "DailyUnlockAll") end)
+end
+
+---------------------------------------------------------------- FREE GIFTS (5 / 15 / 60 min timers, +1 Anime Eyes layout)
+builders.Gifts = function(parent)
+	local p = prof() or {}
+	local serverOffset = (p.ServerTime or os.time()) - os.time()
+	local holder = U.new("Frame", {Size = UDim2.new(1, -6, 0, 420), BackgroundTransparency = 1, Parent = parent})
+	for i, g in SC.Gifts do
+		local f = tileCard(holder, g.Color, UDim2.new(0.32, 0, 1, -6), UDim2.new((i - 1) * 0.34, 0, 0, 0))
+		U.title({Text = g.Title, Size = UDim2.new(1, -8, 0, 34), Position = UDim2.fromOffset(4, 6), ZIndex = 8, Parent = f})
+		iconImg(f, g.Icon, UDim2.fromOffset(92, 92), UDim2.new(0.5, 0, 0, 96), 8)
+		local used = p.GiftCounts and p.GiftCounts[g.Id] or 0
+		U.title({Text = (g.PerDay - used) .. "/" .. g.PerDay .. " left", Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 144), TextColor3 = C(255, 222, 60), ZIndex = 8, Parent = f})
+		local gridF = U.new("Frame", {Size = UDim2.new(1, -12, 0, 170), Position = UDim2.fromOffset(6, 174), BackgroundTransparency = 1, ZIndex = 8, Parent = f})
+		U.new("UIGridLayout", {CellSize = UDim2.new(0.31, 0, 0, 80), CellPadding = UDim2.fromOffset(5, 5), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Parent = gridF})
+		for k, row in g.Pool do
+			local key, txt = rewardInfo(row)
+			local rare = row.Chance <= 3
+			local cell = U.new("Frame", {BackgroundColor3 = rare and C(255, 190, 40) or (row.Kind == "Trophies" and C(120, 120, 135) or C(150, 90, 230)), LayoutOrder = k, ZIndex = 8, Parent = gridF})
+			U.corner(6).Parent = cell
+			U.stroke(3, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = cell
+			local sd = U.studs(cell, 0.3, 18); sd.ZIndex = 8
+			iconImg(cell, key, UDim2.fromScale(0.62, 0.5), UDim2.fromScale(0.5, 0.33), 9)
+			local tl = U.text({Text = txt, Size = UDim2.new(1, -4, 0.24, 0), Position = UDim2.new(0, 2, 0.55, 0), ZIndex = 9, Stroke = 2, Parent = cell})
+			local _ = tl
+			U.text({Text = row.Chance .. "%", Size = UDim2.new(1, -4, 0.2, 0), Position = UDim2.new(0, 2, 0.78, 0), TextColor3 = C(255, 230, 120), ZIndex = 9, Stroke = 2, Parent = cell})
+			if rare then U.rainbow(tl) end
+		end
+		local b, bl = U.button({Text = "", Color = C(235, 60, 80), Size = UDim2.new(0.88, 0, 0, 50), Position = UDim2.new(0.06, 0, 1, -60), Radius = 6, StrokeT = 3, Parent = f})
+		b.ZIndex = 9
+		bl.Font = U.TitleFont
+		local function upd()
+			local at = p.GiftReady and p.GiftReady[g.Id] or math.huge
+			local left = at - (os.time() + serverOffset)
+			if used >= g.PerDay then bl.Text = "DONE TODAY"; U.recolor(b, U.GREY)
+			elseif left <= 0 then bl.Text = "CLAIM!"; U.recolor(b, U.GREEN)
+			else bl.Text = clockText(left); U.recolor(b, C(235, 60, 80)) end
+		end
+		upd(); table.insert(tickers, upd)
+		b.MouseButton1Click:Connect(function()
+			local r = act("ClaimGift", g.Id)
+			if r and r.ok then ctx.Celebrate("FREE GIFT!", r.what, C(255, 220, 80)) end
+		end)
+	end
+end
+
+---------------------------------------------------------------- STORE (Robux items wear rainbow animated text)
+local function shopCard(parent: Instance, order: number, color: Color3, title: string, sub: string, price: string, robux: boolean, onBuy: () -> (), petId: string?, iconKey: string?)
+	local f = card(parent, color, order)
+	if petId then
+		local vp = petViewport(f, petId, UDim2.new(1, -8, 0, 120), UDim2.fromOffset(4, 30)); vp.ZIndex = 7
+	elseif iconKey then
+		iconImg(f, iconKey, UDim2.fromOffset(96, 96), UDim2.new(0.5, 0, 0, 86), 7)
+	end
+	local t = U.title({Text = title, Size = UDim2.new(1, -10, 0, 28), Position = UDim2.fromOffset(5, 4), ZIndex = 8, Parent = f})
+	if robux then U.rainbow(t) end
+	label(f, sub, UDim2.new(0, 5, 0, 152), UDim2.new(1, -10, 0, 22), C(255, 236, 140), nil, 2).ZIndex = 8
+	local b, bl = U.button({Text = price, Color = U.GREEN, Size = UDim2.new(1, -14, 0, 44), Position = UDim2.new(0, 7, 1, -52), Radius = 6, StrokeT = 3, Parent = f})
+	b.ZIndex = 8
+	bl.Font = U.TitleFont
+	if robux then U.rainbow(bl) end
+	b.MouseButton1Click:Connect(onBuy)
+	return f
+end
+local function section(parent: Instance, order: number, text: string)
+	local h = U.title({Text = text, Size = UDim2.new(1, -8, 0, 36), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, Parent = parent})
+	return h
+end
 builders.Shop = function(parent)
-	list(parent, 8)
+	list(parent, 10)
 	local p = prof() or {}
 	local passes = p.Passes or {}
+	section(parent, 1, "SPECIAL PETS")
+	local pets = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 2, Parent = parent})
+	grid(pets, UDim2.fromOffset(190, 236), 10)
+	for i, rp in SC.RobuxPets do
+		local def = SC.Pets[rp.Pet]
+		shopCard(pets, i, rp.Special and C(255, 140, 40) or C(120, 80, 220), def.Name, "x" .. fmt(1 + def.Boost) .. " Hand Signs", "R$ " .. rp.Robux, true,
+			function() act("BuyProduct", rp.Product) end, rp.Pet)
+	end
+	section(parent, 3, "ROBUX EGGS")
+	local eggs = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 4, Parent = parent})
+	grid(eggs, UDim2.fromOffset(190, 236), 10)
+	local n = 0
+	for _, eggId in SC.EggOrder do
+		local egg = SC.Eggs[eggId]
+		if egg.Robux then
+			n += 1
+			local best = SC.Pets[egg.Odds[#egg.Odds].Pet]
+			shopCard(eggs, n, U.shade(egg.Color, 0.8), egg.Name, "Up to " .. best.Name, "R$ " .. egg.Robux, true, function() act("Hatch", eggId) end, nil, "Egg")
+		end
+	end
+	section(parent, 5, "GAME PASSES")
+	local gps = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 6, Parent = parent})
+	grid(gps, UDim2.fromOffset(190, 236), 10)
 	local order = 0
 	for key, gp in SC.GamePasses do
-		order += 1
-		local owned = passes[key]
-		rewardRow(parent, order, gp.Name, gp.Id == 0 and "Coming soon" or "Game pass", owned and "OWNED" or (gp.Id == 0 and "SOON" or "BUY"), gp.Id ~= 0 and not owned, function() act("BuyPass", key) end)
+		if not key:match("^Zone") then -- training zones are bought at the zone itself
+			order += 1
+			local owned = passes[key]
+			shopCard(gps, order, C(70, 150, 240), gp.Name, owned and "OWNED" or "Game pass", owned and "OWNED" or (gp.Id == 0 and "SOON" or "BUY"), true,
+				function() if not owned then act("BuyPass", key) end end, nil, key == "DoubleTrophies" and "TrophyBoost" or (key == "AutoClicker" and "Clock" or "Star"))
+		end
 	end
-	for key, dp in SC.DevProducts do
+	section(parent, 7, "BOOSTS & PACKS")
+	local dps = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 8, Parent = parent})
+	grid(dps, UDim2.fromOffset(190, 236), 10)
+	order = 0
+	for _, key in {"Boost15", "PackSmall", "PackMedium", "PackLarge"} do
+		local dp = SC.DevProducts[key]
 		order += 1
-		local active = (p.BoostUntil or 0) > (p.ServerTime or os.time())
-		rewardRow(parent, order, dp.Name, active and "Active!" or (dp.Id == 0 and "Coming soon" or "Stacks"), dp.Id == 0 and "SOON" or "BUY", dp.Id ~= 0, function() act("BuyProduct", key) end)
+		shopCard(dps, order, C(255, 150, 40), dp.Name, dp.Id == 0 and "Coming soon" or "Developer product", dp.Id == 0 and "SOON" or "BUY", true,
+			function() act("BuyProduct", key) end, nil, key == "Boost15" and "Boost" or "Chakra")
 	end
 end
 

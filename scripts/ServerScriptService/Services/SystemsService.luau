@@ -20,6 +20,9 @@ local playtimeClaimed: {[Player]: {[number]: boolean}} = {}
 local ownedPasses: {[Player]: {[string]: boolean}} = {}
 local freeAutoUntil: {[Player]: number} = {}
 local freeAutoReady: {[Player]: number} = {}
+local giftReady: {[Player]: {[string]: number}} = {} -- Free Gifts: session timers (absolute os.time)
+local dailyNextDayRef: (any, number) -> number = function() return 1 end -- set below (the snapshot hook is defined first)
+local giftDayRef: () -> number = function() return 0 end
 
 ---------------------------------------------------------------- multipliers
 local function petMultiplier(data: any): number
@@ -97,6 +100,9 @@ GameService.SnapshotExtras[#GameService.SnapshotExtras + 1] = function(p, data, 
 	snap.FreeAutoReady = freeAutoReady[p] or 0
 	snap.KyubiCoins = data.KyubiCoins or 0
 	snap.TrophyBoostUntil = data.TrophyBoostUntil or 0
+	snap.DailyNextDay = dailyNextDayRef(data, os.time())
+	snap.GiftReady = giftReady[p] or {}
+	snap.GiftCounts = (data.GiftDay == giftDayRef()) and data.GiftCounts or {}
 end
 
 local function changed(p: Player)
@@ -120,23 +126,51 @@ end
 ---------------------------------------------------------------- actions
 local A: {[string]: (Player, any, any) -> any} = {}
 
-function A.Hatch(p, data, eggId)
-	local egg = typeof(eggId) == "string" and SC.Eggs[eggId]
-	if not egg then return {ok = false, msg = "Unknown egg"} end
-	if data.HighestUnlockedStage < egg.Stage then return {ok = false, msg = "Reach Stage " .. egg.Stage .. " first"} end
-	if countPets(data) >= SC.MaxPetsOwned then return {ok = false, msg = "Pet inventory full - delete some pets"} end
-	if not spend(data, egg.Cost) then return {ok = false, msg = "Not enough Trophies"} end
-	-- server-side roll with the same odds the UI shows
+-- give a pet record (purchases / rewards may exceed the inventory cap; trophy hatching checks it first)
+local function grantPet(p: Player, data: any, petId: string): string
+	local uid = "p" .. data.NextPetId
+	data.NextPetId += 1
+	data.Pets[uid] = {Pet = petId, Locked = false}
+	if #data.EquippedPets < petSlots(p, data) then table.insert(data.EquippedPets, uid) end
+	return uid
+end
+-- server-side roll with the same odds the UI shows
+local function rollEgg(egg: any): string
 	local roll = Random.new():NextNumber() * 100
 	local acc, chosen = 0, egg.Odds[#egg.Odds].Pet
 	for _, row in egg.Odds do
 		acc += row.Chance
 		if roll <= acc then chosen = row.Pet; break end
 	end
-	local uid = "p" .. data.NextPetId
-	data.NextPetId += 1
-	data.Pets[uid] = {Pet = chosen, Locked = false}
-	if #data.EquippedPets < petSlots(p, data) then table.insert(data.EquippedPets, uid) end
+	return chosen
+end
+local function freeHatch(p: Player, data: any, eggId: string, count: number): {string}
+	local egg = SC.Eggs[eggId]
+	local got = {}
+	if not egg then return got end
+	for _ = 1, count do
+		local petId = rollEgg(egg)
+		grantPet(p, data, petId)
+		table.insert(got, petId)
+		GameService.Notify(p, "Hatched", {Egg = eggId, Pet = petId})
+	end
+	return got
+end
+
+function A.Hatch(p, data, eggId)
+	local egg = typeof(eggId) == "string" and SC.Eggs[eggId]
+	if not egg then return {ok = false, msg = "Unknown egg"} end
+	if egg.Robux then -- Robux egg: one hatch per developer-product purchase (granted in ProcessReceipt)
+		local dp = SC.DevProducts[egg.Product]
+		if not dp or dp.Id == 0 then return {ok = false, msg = egg.Name .. ": not available yet"} end
+		MarketplaceService:PromptProductPurchase(p, dp.Id)
+		return {ok = true, prompted = true}
+	end
+	if data.HighestUnlockedStage < egg.Stage then return {ok = false, msg = "Reach Stage " .. egg.Stage .. " first"} end
+	if countPets(data) >= SC.MaxPetsOwned then return {ok = false, msg = "Pet inventory full - delete some pets"} end
+	if not spend(data, egg.Cost) then return {ok = false, msg = "Not enough Trophies"} end
+	local chosen = rollEgg(egg)
+	local uid = grantPet(p, data, chosen)
 	changed(p)
 	return {ok = true, pet = chosen, uid = uid}
 end
@@ -295,15 +329,75 @@ function A.ClaimOffline(p, data)
 	return {ok = true, amount = amt}
 end
 
+-- one reward row (Daily week / Free Gifts) -> grants it, returns a short description for the toast
+local function grantReward(p: Player, data: any, row: any): string
+	local st = Config.Stages[data.HighestUnlockedStage] or Config.Stages[1]
+	if row.Kind == "Trophies" then
+		local amt = math.max(5, math.floor(st.Trophies * row.Mult))
+		GameService.AddTrophies(p, amt)
+		return "+" .. Config.Format(amt) .. " Trophies"
+	elseif row.Kind == "Boost" then
+		data.BoostUntil = math.max(os.time(), data.BoostUntil or 0) + row.Minutes * 60
+		return "x2 Hand Signs " .. row.Minutes .. "m"
+	elseif row.Kind == "TrophyBoost" then
+		data.TrophyBoostUntil = math.max(os.time(), data.TrophyBoostUntil or 0) + row.Minutes * 60
+		return "x2 Trophies " .. row.Minutes .. "m"
+	elseif row.Kind == "Hatch" then
+		freeHatch(p, data, row.Egg, row.Count or 1)
+		return "x" .. (row.Count or 1) .. " " .. SC.Eggs[row.Egg].Name
+	elseif row.Kind == "Aura" then
+		if data.Auras[row.Aura] then return grantReward(p, data, {Kind = "Trophies", Mult = row.Mult or 20}) end
+		data.Auras[row.Aura] = true
+		return SC.Auras[row.Aura].Name
+	elseif row.Kind == "Pet" then
+		grantPet(p, data, row.Pet)
+		return SC.Pets[row.Pet].Name
+	end
+	return ""
+end
+
+-- DAILY REWARDS: a 7-day week. DailyStreak counts claims in the current chain (day = ((streak - 1) % 7) + 1);
+-- one claim per cooldown; missing 48h starts the chain again at Day 1.
+local function dailyNextDay(data: any, now: number): number
+	if (data.LastDaily or 0) <= 0 or now - data.LastDaily > SC.DailyStreakReset then return 1 end
+	return (data.DailyStreak % 7) + 1
+end
+dailyNextDayRef = dailyNextDay
 function A.ClaimDaily(p, data)
 	local now = os.time()
 	if now - data.LastDaily < SC.DailyCooldown then return {ok = false, msg = "Come back later"} end
-	data.DailyStreak = (now - data.LastDaily > SC.DailyStreakReset) and 1 or data.DailyStreak + 1
+	local reset = (data.LastDaily or 0) <= 0 or now - data.LastDaily > SC.DailyStreakReset
+	data.DailyStreak = reset and 1 or data.DailyStreak + 1
+	local day = ((data.DailyStreak - 1) % 7) + 1
 	data.LastDaily = now
-	local amt = SC.DailyReward(data.DailyStreak, data.HighestUnlockedStage)
-	GameService.AddTrophies(p, amt)
+	local what = grantReward(p, data, SC.DailyWeek[day])
 	changed(p)
-	return {ok = true, amount = amt}
+	return {ok = true, day = day, what = what}
+end
+
+-- FREE GIFTS: three timers (5 / 15 / 60 min of play), each with a daily cap; the prize is rolled on the server
+local function giftDayKey(): number local t = os.date("!*t") return t.year * 10000 + t.month * 100 + t.day end
+giftDayRef = giftDayKey
+local function giftCounts(data: any): {[string]: number}
+	local today = giftDayKey()
+	if data.GiftDay ~= today then data.GiftDay = today; data.GiftCounts = {} end
+	return data.GiftCounts
+end
+function A.ClaimGift(p, data, giftId)
+	local g
+	for _, row in SC.Gifts do if row.Id == giftId then g = row end end
+	if not g then return {ok = false} end
+	local counts = giftCounts(data)
+	if (counts[g.Id] or 0) >= g.PerDay then return {ok = false, msg = "No " .. g.Title .. " gifts left today"} end
+	local timers = giftReady[p]
+	if not timers or os.time() < (timers[g.Id] or math.huge) then return {ok = false, msg = "Not ready yet"} end
+	counts[g.Id] = (counts[g.Id] or 0) + 1
+	timers[g.Id] = os.time() + g.Minutes * 60
+	local roll, acc, pick = Random.new():NextNumber() * 100, 0, g.Pool[#g.Pool]
+	for _, row in g.Pool do acc += row.Chance; if roll <= acc then pick = row; break end end
+	local what = grantReward(p, data, pick)
+	changed(p)
+	return {ok = true, what = what}
 end
 
 function A.ClaimPlaytime(p, data, idx)
@@ -449,6 +543,19 @@ for key, dp in SC.DevProducts do
 		productHandlers[dp.Id] = function(_p, data)
 			data.BoostUntil = math.max(os.time(), data.BoostUntil or 0) + 15 * 60
 		end
+	elseif dp.Id ~= 0 and (dp :: any).Egg then
+		productHandlers[dp.Id] = function(p, data) freeHatch(p, data, (dp :: any).Egg, 1) end
+	elseif dp.Id ~= 0 and (dp :: any).Pet then
+		productHandlers[dp.Id] = function(p, data)
+			grantPet(p, data, (dp :: any).Pet)
+			GameService.Notify(p, "Hatched", {Pet = (dp :: any).Pet})
+		end
+	elseif dp.Id ~= 0 and (dp :: any).UnlockDaily then
+		productHandlers[dp.Id] = function(p, data) -- claim every remaining day of this week at once
+			local day = dailyNextDay(data, os.time())
+			for d = day, 7 do grantReward(p, data, SC.DailyWeek[d]); data.DailyStreak += 1 end
+			data.LastDaily = os.time()
+		end
 	elseif dp.Id ~= 0 and (dp :: any).Clicks then
 		productHandlers[dp.Id] = function(p, data)
 			-- pack value tracks the buyer's current per-click gain at purchase time
@@ -533,6 +640,9 @@ function SystemsService.Start()
 	DataService.OnLoaded(function(p, data)
 		sessionStart[p] = os.clock()
 		playtimeClaimed[p] = {}
+		local now = os.time()
+		giftReady[p] = {}
+		for _, g in SC.Gifts do giftReady[p][g.Id] = now + g.Minutes * 60 end
 		refreshPasses(p)
 		-- drop records for pets that no longer exist in config
 		for uid, rec in data.Pets do if not SC.Pets[rec.Pet] then data.Pets[uid] = nil end end
@@ -541,7 +651,7 @@ function SystemsService.Start()
 		changed(p)
 	end)
 	Players.PlayerRemoving:Connect(function(p)
-		sessionStart[p] = nil; playtimeClaimed[p] = nil; ownedPasses[p] = nil; freeAutoUntil[p] = nil; freeAutoReady[p] = nil
+		sessionStart[p] = nil; playtimeClaimed[p] = nil; giftReady[p] = nil; ownedPasses[p] = nil; freeAutoUntil[p] = nil; freeAutoReady[p] = nil
 	end)
 
 	-- auto train (upgrade): 2 trains per second, server-side

@@ -32,17 +32,9 @@ local function clock(s: number): string
 	return string.format("%d:%02d", s // 60, s % 60)
 end
 
----------------------------------------------------------------- sounds (Roblox built-in content only)
-local function sfx(id: string, vol: number?, pitch: number?)
-	local s = Instance.new("Sound")
-	s.SoundId = "rbxasset://sounds/" .. id
-	s.Volume = vol or 0.5
-	s.PlaybackSpeed = pitch or 1
-	s.Parent = SoundService
-	s:Play()
-	s.Ended:Connect(function() s:Destroy() end)
-	task.delay(4, function() if s.Parent then s:Destroy() end end)
-end
+---------------------------------------------------------------- sounds: all through Client.Sfx (licensed library + built-ins)
+local Sfx = require(Client:WaitForChild("Sfx"))
+local _ = SoundService
 
 ---------------------------------------------------------------- root gui + scaling
 local gui = U.new("ScreenGui", {Name = "HUD", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = player:WaitForChild("PlayerGui")})
@@ -102,13 +94,13 @@ ctx.HatchAnimation = function(eggId: string, petId: string)
 	local eggF = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(160, 200), BackgroundColor3 = egg.Color, ZIndex = 21, Parent = overlay})
 	U.corner(90).Parent = eggF
 	U.stroke(6).Parent = eggF
-	sfx("clickfast.wav", 0.4)
+	Sfx.Play("EggShake")
 	for i = 1, 10 do
 		eggF.Rotation = (i % 2 == 0 and 1 or -1) * (6 + i * 1.5)
 		task.wait(0.09 + i * 0.01)
 	end
 	eggF:Destroy()
-	sfx("electronicpingshort.wav", 0.6, 0.8)
+	Sfx.Play("Reward")
 	local vp = Menus.PetViewport(overlay, petId, UDim2.fromOffset(300, 300), UDim2.new(0.5, -150, 0.45, -170))
 	vp.ZIndex = 21
 	U.pop(vp, 0.2)
@@ -132,7 +124,7 @@ local function offlinePopup(amount: number, secs: number)
 	U.pop(f)
 	b.MouseButton1Click:Connect(function()
 		Menus.Act("ClaimOffline")
-		sfx("electronicpingshort.wav", 0.6)
+		Sfx.Play("Coins")
 		f:Destroy()
 	end)
 end
@@ -148,10 +140,19 @@ Looks.Start()
 Anim.Start()
 
 ---------------------------------------------------------------- menu wiring
-local function open(id: string) sfx("electronicpingshort.wav", 0.25, 1.4); Menus.Open(id) end
+local function open(id: string) Sfx.Play("Open"); Menus.Open(id) end
 E.SignsButton.MouseButton1Click:Connect(function() open("Signs") end)
 for id, b in E.Grid do b.MouseButton1Click:Connect(function() open(id) end) end
-for id, b in E.TopIcons do b.MouseButton1Click:Connect(function() open(id) end) end
+for id, b in E.TopIcons do
+	b.MouseButton1Click:Connect(function()
+		if id == "Invite" then -- Roblox's own invite prompt (free, no data leaves the game)
+			Sfx.Play("Click")
+			pcall(function() game:GetService("SocialService"):PromptGameInvite(player) end)
+		else
+			open(id)
+		end
+	end)
+end
 E.Promo.Visible = SC.DevProducts.Boost15.Id ~= 0
 E.Promo.MouseButton1Click:Connect(function() Menus.Act("BuyProduct", "Boost15") end)
 for key in {PackSmall = 1, PackMedium = 1, PackLarge = 1} do
@@ -221,7 +222,7 @@ local function train()
 	Anim.Train()
 	local h = head()
 	if h and not V.Reduced then V.FloatText(h + Vector3.new(math.random(-20, 20) / 10, 1.5, 0), "+" .. fmt(g) .. " \u{1F590}", C(110, 200, 255), 38) end
-	sfx("clickfast.wav", 0.12, 1 + math.random() * 0.2)
+	Sfx.Play("Train")
 	E.BigScale.Scale = 1.08
 	U.tween(E.BigScale, 0.15, {Scale = 1})
 end
@@ -271,7 +272,7 @@ local function attack()
 	lastAttack = now
 	face(target)
 	Remotes.Attack:FireServer()
-	sfx("swordslash.wav", 0.3, 1.1 + math.random() * 0.2)
+	Sfx.Play("Swing")
 end
 -- one click = +1 training, and a punch when an enemy is in reach ("Click to attack!")
 local function primary() train(); attack() end
@@ -284,7 +285,7 @@ local function cast(slot: string)
 	local j = Config.Jutsu[jid]
 	face(nearestEnemy(j.Range > 0 and j.Range or 30))
 	Remotes.Cast:FireServer(slot)
-	sfx("swordlunge.wav", 0.35)
+	Sfx.Jutsu(j.Vfx)
 end
 
 E.Attack.Button.MouseButton1Click:Connect(primary)
@@ -317,6 +318,19 @@ Remotes.Vfx.OnClientEvent:Connect(function(kind, ...)
 			V.Shake(1.5)
 		end
 		return
+	end
+	-- sounds for server-driven combat events
+	local a1, a2 = ...
+	if kind == "Hit" and typeof(a1) == "Instance" and a1:IsA("Model") then
+		Sfx.PlayAt("Hit", (a1 :: Model):GetPivot().Position)
+	elseif kind == "Death" and typeof(a2) == "Vector3" then
+		Sfx.PlayAt("Poof", a2)
+	elseif kind == "Explosion" and typeof(a2) == "Vector3" then
+		Sfx.PlayAt("Boom", a2)
+	elseif kind == "EnemyMelee" and typeof(a1) == "Instance" then
+		task.delay(0.25, function() Sfx.Play("HitTaken", 0.8) end)
+	elseif kind == "BossBlast" and typeof(a2) == "Vector3" then
+		task.delay(1, function() Sfx.PlayAt("Boom", a2, 0.8) end)
 	end
 	V.Dispatch(kind, ...)
 end)
@@ -387,21 +401,22 @@ end
 Remotes.Notify.OnClientEvent:Connect(function(kind: string, payload: any)
 	if kind == "LevelUp" then
 		celebrate("LEVEL UP!", "Level " .. payload, C(255, 220, 60))
-		sfx("electronicpingshort.wav", 0.6, 1.2)
+		Sfx.Play("LevelUp")
 	elseif kind == "SignUnlocked" then
 		local s = Config.HandSigns[payload]
 		if s then
 			celebrate("NEW HAND SIGN!", string.upper(s.Name) .. "  (x" .. fmt(s.Multiplier) .. ")", s.Color, "E: " .. Config.Jutsu[s.E].Name .. "   R: " .. Config.Jutsu[s.R].Name)
-			sfx("electronicpingshort.wav", 0.7, 0.7)
+			Sfx.Play("Reward")
 			toast("Open HAND SIGNS to equip " .. s.Name, C(120, 255, 140))
 		end
 	elseif kind == "StageCleared" then
-		sfx("electronicpingshort.wav", 0.7, 1)
+		Sfx.Play("Win")
+		Sfx.Play("GateOpen", 0.8)
 		showWinChoice(payload.Stage)
 	elseif kind == "PadClaimed" then
 		closeWinChoice()
 		toast("+" .. fmt(payload.Amount) .. " \u{1F3C6} Wins!" .. ((payload.Mult or 1) > 1 and "  (x2)" or "") .. "  Back to the lobby!", C(255, 220, 80))
-		sfx("electronicpingshort.wav", 0.5, 1.5)
+		Sfx.Play("Coins")
 	elseif kind == "Toast" then
 		toast(tostring(payload), C(255, 200, 120))
 	elseif kind == "NoTarget" then
@@ -415,12 +430,22 @@ Remotes.Notify.OnClientEvent:Connect(function(kind: string, payload: any)
 		end
 	elseif kind == "Rebirth" then
 		celebrate("REBIRTH!", "Rebirths: " .. payload, C(200, 120, 255), "Training multiplier x" .. (1 + payload * 0.75))
-		sfx("electronicpingshort.wav", 0.7, 0.6)
+		Sfx.Play("Rebirth")
 	elseif kind == "BossPhase" then
 		celebrate(payload == 3 and "FINAL PHASE!" or "PHASE " .. payload .. "!", "The Divine Chakra Master grows stronger", C(255, 200, 80))
 		V.Shake(2)
 	elseif kind == "Offline" then
 		offlinePopup(payload.Amount, payload.Seconds)
+	elseif kind == "Hatched" then -- free hatches (daily / gifts) and Robux egg / pet purchases
+		if typeof(payload) == "table" and payload.Pet and SC.Pets[payload.Pet] then
+			if payload.Egg and SC.Eggs[payload.Egg] then
+				task.spawn(ctx.HatchAnimation, payload.Egg, payload.Pet)
+			else
+				local def = SC.Pets[payload.Pet]
+				celebrate("NEW PET!", def.Name, SC.RarityColor[def.Rarity])
+				Sfx.Play("Reward")
+			end
+		end
 	end
 end)
 
@@ -540,6 +565,13 @@ task.spawn(function()
 		E.RebirthTag.TextColor3 = pct >= 100 and C(130, 255, 120) or C(255, 255, 255)
 		-- daily reward dot
 		E.DailyDot.Visible = p ~= nil and (serverNow - (p.LastDaily or 0)) >= SC.DailyCooldown
+		local giftReady = false
+		for _, g in SC.Gifts do
+			local at = p and p.GiftReady and p.GiftReady[g.Id]
+			local used = p and p.GiftCounts and p.GiftCounts[g.Id] or 0
+			if at and serverNow >= at and used < g.PerDay then giftReady = true end
+		end
+		E.GiftDot.Visible = giftReady
 		-- auto clickers
 		local ownsOP = p and p.Passes and p.Passes.AutoClicker
 		E.OPAutoLabel.Text = ownsOP and ((p.Settings and p.Settings.AutoTrain == false) and "OFF" or "ON") or (SC.GamePasses.AutoClicker.Id == 0 and "SOON" or "BUY")

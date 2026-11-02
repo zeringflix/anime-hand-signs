@@ -1,7 +1,10 @@
--- Small UI toolkit: chunky outlined simulator style (FredokaOne, thick strokes, rounded colourful buttons).
+-- Small UI toolkit: chunky outlined simulator style (FredokaOne body, Luckiest Guy titles, thick strokes, studs).
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Assets = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Assets"))
 local U = {}
 U.Font = Enum.Font.FredokaOne
+U.TitleFont = Enum.Font.LuckiestGuy -- big cartoony headings / prices (kid-friendly, like the reference's titles)
 
 function U.new(class: string, props: {[string]: any}?, children: {Instance}?): any
 	local i = Instance.new(class)
@@ -24,6 +27,17 @@ function U.shade(c: Color3, f: number): Color3
 	return Color3.new(math.clamp(c.R * f, 0, 1), math.clamp(c.G * f, 0, 1), math.clamp(c.B * f, 0, 1))
 end
 
+-- big cartoon title: Luckiest Guy, extra-thick outline, subtle white->cream gradient
+function U.title(props: {[string]: any}): TextLabel
+	props.Font = props.Font or U.TitleFont
+	props.Stroke = props.Stroke or 4
+	local t = U.text(props)
+	if props.NoGradient == nil then
+		U.new("UIGradient", {Rotation = 90, Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(255, 236, 190)), Parent = t})
+	end
+	return t
+end
+
 -- outlined text
 function U.text(props: {[string]: any}): TextLabel
 	local t = U.new("TextLabel", {
@@ -31,6 +45,7 @@ function U.text(props: {[string]: any}): TextLabel
 	})
 	local strokeT = props.Stroke or 2.5
 	props.Stroke = nil
+	props.NoGradient = nil
 	for k, v in props do (t :: any)[k] = v end
 	if strokeT > 0 then U.stroke(strokeT).Parent = t end
 	return t
@@ -46,13 +61,45 @@ U.GREY = Color3.fromRGB(118, 118, 132)
 U.OUTLINE = Color3.fromRGB(20, 16, 28)
 
 -- raised studs: tiled bevelled stud texture (light top-left edge, dark bottom-right edge)
-U.STUDS = "rbxassetid://71524150589644" -- replaced by the bevelled stud texture on upload (assets/textures/studs_bevel.png)
+U.STUDS = Assets.Studs -- bevelled rounded-square studs (assets/textures/studs_square.png), like the reference panels
 function U.studs(parent: Instance, transp: number?, tile: number?): ImageLabel
 	local s = U.new("ImageLabel", {Name = "Studs", BackgroundTransparency = 1, Image = U.STUDS, ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(tile or 34, tile or 34), ImageTransparency = transp or 0.05, Size = UDim2.fromScale(1, 1), Parent = parent})
+		TileSize = UDim2.fromOffset(tile or 30, tile or 30), ImageTransparency = transp or 0.05, Size = UDim2.fromScale(1, 1), Parent = parent})
 	U.corner(8).Parent = s
 	return s
 end
+
+-- ANIMATED RAINBOW TEXT for Robux items (owner request): a hue-cycling UIGradient; one shared 20 Hz updater.
+local rainbows: {UIGradient} = {}
+local RAINBOW_KEYS = 7
+function U.rainbow(label: GuiObject, speed: number?): UIGradient
+	local old = label:FindFirstChild("Rainbow")
+	if old then return old :: UIGradient end
+	if label:IsA("TextLabel") or label:IsA("TextButton") then (label :: any).TextColor3 = Color3.new(1, 1, 1) end
+	for _, g in label:GetChildren() do if g:IsA("UIGradient") then g:Destroy() end end -- one gradient per label
+	local g = U.new("UIGradient", {Name = "Rainbow", Rotation = 0, Parent = label})
+	g:SetAttribute("Speed", speed or 0.35)
+	table.insert(rainbows, g)
+	return g
+end
+local acc = 0
+RunService.RenderStepped:Connect(function(dt)
+	acc += dt
+	if acc < 0.05 or #rainbows == 0 then return end
+	acc = 0
+	local t = os.clock()
+	for i = #rainbows, 1, -1 do
+		local g = rainbows[i]
+		if not g.Parent then table.remove(rainbows, i) continue end
+		local sp = g:GetAttribute("Speed") or 0.35
+		local keys = {}
+		for k = 0, RAINBOW_KEYS - 1 do
+			local a = k / (RAINBOW_KEYS - 1)
+			table.insert(keys, ColorSequenceKeypoint.new(a, Color3.fromHSV((t * sp + a * 0.85) % 1, 0.72, 1)))
+		end
+		g.Color = ColorSequence.new(keys)
+	end
+end)
 
 -- glossy dimensional surface on any frame/button: colour-preserving vertical gradient, white reflection over the
 -- top ~28%, darker bottom lip. Children render above their parent, so the text label must be created after this.
@@ -88,6 +135,8 @@ function U.button(props: {[string]: any}): (TextButton, TextLabel)
 		TextSize = props.TextSize, TextScaled = props.TextSize == nil, Stroke = props.TextStroke or 3, Parent = b})
 	local base = b.Size
 	b.MouseButton1Down:Connect(function()
+		local okS, Sfx = pcall(require, script.Parent:FindFirstChild("Sfx"))
+		if okS and Sfx then Sfx.Play("Click") end
 		TweenService:Create(b, TweenInfo.new(0.06), {Size = UDim2.new(base.X.Scale * 0.94, base.X.Offset * 0.94, base.Y.Scale * 0.94, base.Y.Offset * 0.94)}):Play()
 	end)
 	local function up() TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Back), {Size = base}):Play() end

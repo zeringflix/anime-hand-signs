@@ -39,6 +39,7 @@ function DataService.Default()
 		LastSeen = 0, Settings = {ReduceEffects = false, Music = true, AutoTrain = true, HideOtherPets = false},
 		PendingOffline = 0, Receipts = {}, BoostUntil = 0, ClaimedMilestones = {},
 		KyubiCoins = 0, TrophyBoostUntil = 0, LastLeaveBonus = 0,
+		GiftDay = 0, GiftCounts = {},
 	}
 end
 

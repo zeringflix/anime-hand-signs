@@ -19,8 +19,8 @@ local function tile(parent: Instance, color: Color3, icon: string, label: string
 	local inner = U.new("Frame", {Position = UDim2.fromOffset(5, 5), Size = UDim2.new(1, -10, 1, -10), BackgroundTransparency = 1, Parent = b})
 	U.corner(10).Parent = inner
 	U.new("UIStroke", {Thickness = 3, Color = Color3.new(1, 1, 1), Transparency = 0.55, Parent = inner})
-	local ic = img({Icon = icon, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.new(0.9, 0, 0.68, 0), Position = UDim2.new(0.5, 0, -0.04, 0), Parent = b})
-	local lb = U.text({Text = label, Size = UDim2.new(1, -6, 0.3, 0), Position = UDim2.new(0, 3, 0.66, 0), Stroke = 3, ZIndex = 2, Parent = b})
+	local ic = img({Icon = icon, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.new(0.9, 0, 0.68, 0), Position = UDim2.new(0.5, 0, -0.04, 0), ZIndex = 2, Parent = b})
+	local lb = U.text({Text = label, Font = U.TitleFont, Size = UDim2.new(1, -6, 0.3, 0), Position = UDim2.new(0, 3, 0.67, 0), Stroke = 3.5, ZIndex = 3, Parent = b})
 	return b, ic, lb
 end
 H.Tile = tile
@@ -34,12 +34,13 @@ function H.Build(gui: ScreenGui)
 	U.new("UIGridLayout", {CellSize = UDim2.fromOffset(92, 92), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = left})
 	E.Grid = {}
 	local gridDefs = {
-		{"Shop", "Shop", "Store", C(235, 60, 80)}, {"Rewards", "Scroll", "Quests", C(255, 150, 40)},
+		{"Shop", "Shop", "Store", C(235, 60, 80)}, {"Quests", "Quests", "Quests", C(255, 150, 40)},
 		{"Signs", "HandSign", "Hand Signs", C(235, 60, 80)}, {"Rebirth", "Rebirth", "Rebirth", C(150, 80, 230)},
-		{"Auras", "Aura", "Auras", C(235, 60, 80)}, {"Pets", "Egg", "Pets", C(255, 150, 40)},
+		{"Auras", "Aura", "Auras", C(235, 60, 80)}, {"Pets", "Pets", "Pets", C(255, 150, 40)},
 	}
 	for i, d in gridDefs do
 		local b, ic, lb = tile(left, d[4], d[2], d[3], Vector2.new(92, 92), i)
+		b.Name = d[1]
 		lb.TextScaled = true
 		if d[1] == "Signs" then
 			ic.Image = (Assets.SignIcons and Assets.SignIcons.Tiger) or ic.Image
@@ -60,17 +61,21 @@ function H.Build(gui: ScreenGui)
 	E.RebirthCount = row(0, "Rebirth", C(120, 255, 110))
 	E.Trophies = row(54, "Trophy", C(120, 255, 110))
 
-	---------------------------------------------------------------- top-right icon row (systems that exist: Codes, Daily, Upgrades, Stages, Top, Settings)
+	---------------------------------------------------------------- top-right icon row (reference: Codes, Daily Rewards, Invite, Settings; + Free Gifts)
+	-- owner 2026-11-02: no Places/Stages or Upgrades buttons (stages = WORLDS portal in the lobby)
 	local tr = U.new("Frame", {Name = "TopRight", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 6), Size = UDim2.fromOffset(500, 84), BackgroundTransparency = 1, Parent = gui})
 	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = tr})
 	E.TopIcons = {}
-	for i, d in {{"Codes", "Codes", "Codes"}, {"Rewards", "Daily", "Daily"}, {"Upgrades", "Upgrades", "Upgrades"}, {"Stages", "Places", "Stages"}, {"Top", "Crown", "Top"}, {"Settings", "Settings", "Settings"}} do
-		local b = U.new("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(78, 84), LayoutOrder = i, Parent = tr})
-		img({Icon = d[2], Size = UDim2.fromOffset(58, 58), Position = UDim2.fromOffset(10, -2), Parent = b})
-		U.text({Text = d[3], Size = UDim2.fromOffset(78, 26), Position = UDim2.fromOffset(0, 54), Stroke = 3, Parent = b})
+	for i, d in {{"Codes", "Codes", "Codes"}, {"Daily", "Daily", "Daily"}, {"Gifts", "Gift", "Gifts"}, {"Invite", "Invite", "Invite"}, {"Settings", "Settings", "Settings"}} do
+		local b = U.new("TextButton", {Name = d[1], Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(86, 88), LayoutOrder = i, Parent = tr})
+		img({Icon = d[2], Size = UDim2.fromOffset(64, 64), Position = UDim2.fromOffset(11, -4), Parent = b})
+		U.text({Text = d[3], Font = U.TitleFont, Size = UDim2.fromOffset(92, 28), Position = UDim2.fromOffset(-3, 56), Stroke = 3.5, Parent = b})
 		E.TopIcons[d[1]] = b
 	end
-	E.DailyDot = U.new("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(58, 2), BackgroundColor3 = C(255, 60, 60), Visible = false, Parent = E.TopIcons.Rewards})
+	E.DailyDot = U.new("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(62, 2), BackgroundColor3 = C(255, 60, 60), Visible = false, Parent = E.TopIcons.Daily})
+	E.GiftDot = U.new("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(62, 2), BackgroundColor3 = C(255, 60, 60), Visible = false, Parent = E.TopIcons.Gifts})
+	U.corner(8).Parent = E.GiftDot
+	U.stroke(2, Color3.new(1, 1, 1), Enum.ApplyStrokeMode.Border).Parent = E.GiftDot
 	U.corner(8).Parent = E.DailyDot
 	U.stroke(2, Color3.new(1, 1, 1), Enum.ApplyStrokeMode.Border).Parent = E.DailyDot
 	-- promo card (only shown when the boost product has a real id)
@@ -110,7 +115,7 @@ function H.Build(gui: ScreenGui)
 	local bigRow = U.new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(500, 72), BackgroundTransparency = 1, Parent = bc})
 	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = bigRow})
 	E.BigIcon = img({Icon = "Chakra", Size = UDim2.fromOffset(72, 72), LayoutOrder = 1, Parent = bigRow})
-	E.BigCount = U.text({Text = "0 Hand Signs", TextScaled = false, TextSize = 54, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 64), TextColor3 = C(120, 255, 110), Stroke = 5, LayoutOrder = 2, Parent = bigRow})
+	E.BigCount = U.text({Text = "0 Hand Signs", Font = U.TitleFont, TextScaled = false, TextSize = 54, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 64), TextColor3 = C(120, 255, 110), Stroke = 5, LayoutOrder = 2, Parent = bigRow})
 	E.BigScale = U.new("UIScale", {Parent = E.BigCount})
 
 	local lvl = U.new("Frame", {Position = UDim2.fromOffset(40, 142), Size = UDim2.new(1, -40, 0, 58), BackgroundColor3 = C(70, 70, 85), Parent = bc})
@@ -119,8 +124,8 @@ function H.Build(gui: ScreenGui)
 	E.LevelFill = U.new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C(255, 200, 40), Parent = lvl})
 	U.corner(14).Parent = E.LevelFill
 	U.grad(C(255, 225, 90), C(255, 160, 20)).Parent = E.LevelFill
-	E.LevelText = U.text({Text = "Level 1", Position = UDim2.fromOffset(52, 6), Size = UDim2.new(0.5, 0, 1, -12), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5, Parent = lvl})
-	E.XPText = U.text({Text = "0 / 7", Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(0.5, -16, 1, -12), TextXAlignment = Enum.TextXAlignment.Right, Stroke = 3.5, Parent = lvl})
+	E.LevelText = U.text({Text = "Level 1", Font = U.TitleFont, Position = UDim2.fromOffset(52, 6), Size = UDim2.new(0.5, 0, 1, -12), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5, Parent = lvl})
+	E.XPText = U.text({Text = "0 / 7", Font = U.TitleFont, Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(0.5, -16, 1, -12), TextXAlignment = Enum.TextXAlignment.Right, Stroke = 3.5, Parent = lvl})
 	img({Icon = "Star", Position = UDim2.fromOffset(-4, 128), Size = UDim2.fromOffset(88, 88), ZIndex = 3, Parent = bc})
 
 	local packs = U.new("Frame", {Position = UDim2.fromOffset(40, 210), Size = UDim2.new(1, -40, 0, 56), BackgroundTransparency = 1, Parent = bc})
