@@ -282,6 +282,28 @@ GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player,
 	if root then root.CFrame = GameService.StageSpawnCFrame(stage) end
 end)
 
+-- lobby training stations (issue #14): inside a station Zone, training is multiplied if Rebirths >= requirement
+function GameService.StationMultiplier(data: any, pos: Vector3): number
+	local lobby = workspace:FindFirstChild("Lobby")
+	local folder = lobby and lobby:FindFirstChild("TrainingStations")
+	if not folder then return 1 end
+	local stations = require(game:GetService("ReplicatedStorage").Shared.SystemsConfig).TrainingStations
+	if not stations then return 1 end
+	for _, m in folder:GetChildren() do
+		local zone = m:FindFirstChild("Zone") :: BasePart?
+		local idx = zone and zone:GetAttribute("StationIndex")
+		local st = idx and stations[idx]
+		if zone and st then
+			local lp = zone.CFrame:PointToObjectSpace(pos)
+			local h = zone.Size / 2
+			if math.abs(lp.X) <= h.X and math.abs(lp.Y) <= h.Y and math.abs(lp.Z) <= h.Z then
+				return (data.Rebirths or 0) >= st.Rebirths and st.Mult or 1
+			end
+		end
+	end
+	return 1
+end
+
 -- server guard: players cannot stand past their unlocked gate
 task.spawn(function()
 	while true do
@@ -298,6 +320,9 @@ task.spawn(function()
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
 				player:SetAttribute("InLobby", x < -Config.StageLength / 2)
+				local okZ, zm = pcall(GameService.StationMultiplier, data, root.Position)
+				zm = (okZ and x < -Config.StageLength / 2) and zm or 1
+				if player:GetAttribute("ZoneMult") ~= zm then player:SetAttribute("ZoneMult", zm) end
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)
 				if player:GetAttribute("InStage") ~= stageIdx then
 					player:SetAttribute("InStage", stageIdx)

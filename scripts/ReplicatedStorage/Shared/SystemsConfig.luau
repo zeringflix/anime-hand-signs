@@ -165,6 +165,23 @@ S.DevProducts = {
 S.FreeAuto = {ActiveSeconds = 180, CooldownSeconds = 420, TrainsPerSecond = 2}
 S.OPAutoTrainsPerSecond = 5
 
+-- Lobby training stations (issue #14, +1 Anime Eyes-style "X.. CHAKRA" field -> "X.. HAND SIGNS").
+-- Standing inside a station's zone multiplies training; gate = Rebirths (no Robux products).
+-- PROPOSED DEFAULTS — owner to balance. Applied server-side by GameService.StationMultiplier.
+S.TrainingStations = {
+	{Mult = 2, Rebirths = 0, Theme = "ring", Color = C(120, 255, 130)},
+	{Mult = 3, Rebirths = 1, Theme = "shrine", Color = C(255, 214, 90)},
+	{Mult = 5, Rebirths = 2, Theme = "crystal", Color = C(90, 220, 255)},
+	{Mult = 7, Rebirths = 3, Theme = "furnace", Color = C(255, 150, 60)},
+	{Mult = 10, Rebirths = 5, Theme = "gate", Color = C(255, 200, 80)},
+	{Mult = 15, Rebirths = 8, Theme = "dome", Color = C(140, 220, 255)},
+	{Mult = 20, Rebirths = 12, Theme = "portal", Color = C(190, 110, 255)},
+	{Mult = 25, Rebirths = 18, Theme = "blossom", Color = C(255, 170, 210)},
+	{Mult = 35, Rebirths = 25, Theme = "orb", Color = C(255, 80, 100)},
+	{Mult = 50, Rebirths = 35, Theme = "garden", Color = C(255, 120, 200)},
+	{Mult = 100, Rebirths = 50, Theme = "tower", Color = C(120, 200, 255)},
+	{Mult = 250, Rebirths = 80, Theme = "beam", Color = C(200, 120, 255)},
+}
 -- issue #13 guard: lobby-hub systems (Boss Shop / Fuse) are NOT built yet. These are
 -- empty STUBS so SystemsService handlers fail safely instead of erroring. Filled in by the lobby issue.
 S.BossShop = S.BossShop or {}

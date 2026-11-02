@@ -19,9 +19,9 @@ local ctx: any
 
 local STATE = {
 	Equipped = {Color = C(80, 225, 110), Text = "EQUIPPED", Action = "Equipped"},
-	Owned = {Color = C(255, 205, 60), Text = "OWNED · EQUIP", Action = "Equip"},
-	Ready = {Color = C(255, 130, 40), Text = "", Action = "Buy"},
-	Locked = {Color = C(215, 70, 70), Text = "", Action = "Buy"},
+	Owned = {Color = C(255, 225, 50), Text = "OWNED", Action = "Equip"},
+	Ready = {Color = C(255, 60, 60), Text = "", Action = "Buy"},
+	Locked = {Color = C(200, 40, 50), Text = "", Action = "Buy"},
 }
 local GOOD, BAD = C(140, 255, 150), C(255, 130, 130)
 
@@ -54,7 +54,7 @@ local function updatePad(m: Instance)
 	local pad = m:FindFirstChild("Pad") :: BasePart?
 	if pad then
 		pad.Color = info.Color
-		pad.Material = st == "Equipped" and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		pad.Material = Enum.Material.Neon
 		local pp = pad:FindFirstChildOfClass("ProximityPrompt")
 		if pp then
 			pp.ActionText = (st == "Ready" or st == "Locked") and ("Buy  🏆 " .. Config.Format(s.Price)) or info.Action
@@ -75,13 +75,20 @@ local function updatePad(m: Instance)
 				req.Text = part(stageOk, "STAGE " .. s.Stage) .. " · " .. part(powerOk, Config.Format(s.Power) .. " SIGNS")
 			end
 		end
+		local priceIcon = card:FindFirstChild("PriceIcon") :: ImageLabel?
 		if status then
-			if st == "Ready" or st == "Locked" then
-				status.Text = "🏆 " .. Config.Format(s.Price)
-				status.TextColor3 = priceOk and C(255, 210, 70) or BAD
+			local buying = st == "Ready" or st == "Locked"
+			if priceIcon then priceIcon.Visible = buying end
+			if buying then
+				status.Text = Config.Format(s.Price)
+				status.TextColor3 = priceOk and C(255, 214, 90) or BAD
+				status.Position = UDim2.fromScale(priceIcon and 0.36 or 0.05, 0.75)
+				status.Size = UDim2.fromScale(priceIcon and 0.5 or 0.9, 0.25)
 			else
-				status.Text = info.Text
+				status.Text = st == "Equipped" and "EQUIPPED" or "OWNED"
 				status.TextColor3 = info.Color
+				status.Position = UDim2.fromScale(0.05, 0.75)
+				status.Size = UDim2.fromScale(0.9, 0.25)
 			end
 		end
 	end
