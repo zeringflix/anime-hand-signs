@@ -1,5 +1,8 @@
 --!strict
 -- Server-authoritative stage enemies. 10 Hz brains, distance-gated per stage (LihFolk: NPC AI and Behaviour).
+-- PER-PLAYER ENEMIES (owner request): every player gets their own set of enemies for the stage they are in.
+-- Enemies stay server-simulated (HP, damage, rewards can't be faked), carry an OwnerId attribute, only target,
+-- hurt and reward their owner, and only their owner's client renders them (Client.EnemyVisibility hides the rest).
 -- HP lives in this table (not Humanoid.Health) so huge late-game numbers stay exact.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,15 +12,17 @@ local GameService = require(script.Parent.GameService)
 local EnemyService = {}
 export type Enemy = {Id: number, Model: Model, Root: BasePart, Hum: Humanoid, Stage: number, IsBoss: boolean, Name: string,
 	MaxHp: number, Hp: number, Damage: number, Credit: {[Player]: boolean}, RootedUntil: number, NextAttack: number,
-	Home: Vector3, Dead: boolean, Bar: Frame, HpText: TextLabel, Burning: number, SpawnName: string}
+	Home: Vector3, Dead: boolean, Bar: Frame, HpText: TextLabel, Burning: number, SpawnName: string, Owner: Player?}
 EnemyService.Enemies = {} :: {[number]: Enemy}
 local byModel: {[Model]: Enemy} = {}
 local nextId = 1
 local folder = Instance.new("Folder")
 folder.Name = "Enemies"
 folder.Parent = workspace
-local activeStages: {[number]: boolean} = {}
-local spawnedStages: {[number]: boolean} = {}
+-- spawned sets are keyed per owner: "<UserId>:<stage>"
+local spawnedSets: {[string]: boolean} = {}
+local function setKey(owner: Player, stage: number): string return owner.UserId .. ":" .. stage end
+local activeKeys: {[string]: boolean} = {}
 
 local SKIN = {Color3.fromRGB(255, 205, 160), Color3.fromRGB(234, 184, 146), Color3.fromRGB(198, 143, 104), Color3.fromRGB(150, 100, 70)}
 local function shade(c: Color3, f: number) return Color3.new(math.clamp(c.R * f, 0, 1), math.clamp(c.G * f, 0, 1), math.clamp(c.B * f, 0, 1)) end
@@ -154,7 +159,7 @@ local function updateBar(e: Enemy)
 	e.Model:SetAttribute("EnemyName", e.Name)
 end
 
-function EnemyService.Spawn(stage: number, spawnPart: BasePart)
+function EnemyService.Spawn(stage: number, spawnPart: BasePart, owner: Player)
 	local st = Config.Stages[stage]
 	local isBoss = spawnPart.Name == "Boss"
 	local idx = tonumber(spawnPart.Name:sub(2)) or 1
@@ -169,10 +174,12 @@ function EnemyService.Spawn(stage: number, spawnPart: BasePart)
 		Id = nextId, Model = model, Root = root, Hum = model:FindFirstChildOfClass("Humanoid") :: Humanoid, Stage = stage, IsBoss = isBoss, Name = name,
 		MaxHp = st.EnemyHp * hpMult, Hp = st.EnemyHp * hpMult, Damage = st.EnemyDamage * (isBoss and 2 or 1),
 		Credit = {}, RootedUntil = 0, NextAttack = os.clock() + 2, Home = spawnPart.Position, Dead = false,
-		Bar = nil :: any, HpText = nil :: any, Burning = 0, SpawnName = spawnPart.Name,
+		Bar = nil :: any, HpText = nil :: any, Burning = 0, SpawnName = spawnPart.Name, Owner = owner,
 	}
 	nextId += 1
 	model:SetAttribute("EnemyId", e.Id)
+	model:SetAttribute("OwnerId", owner.UserId)
+	model.Name = name .. "_" .. owner.UserId
 	model:SetAttribute("Stage", stage)
 	model:SetAttribute("Boss", isBoss)
 	model:SetAttribute("Element", st.Element)
@@ -229,22 +236,25 @@ local function stageFolder(stage: number)
 	return course and course:FindFirstChild(string.format("Stage%02d", stage))
 end
 
-local function ensureStage(stage: number)
-	if spawnedStages[stage] then return end
-	spawnedStages[stage] = true
+local function ensureSet(owner: Player, stage: number)
+	local key = setKey(owner, stage)
+	if spawnedSets[key] then return end
+	spawnedSets[key] = true
 	local sf = stageFolder(stage)
 	local spawns = sf and sf:FindFirstChild("EnemySpawns")
 	if not spawns then return end
 	for _, sp in spawns:GetChildren() do
-		if sp:IsA("BasePart") then task.spawn(EnemyService.Spawn, stage, sp) end
+		if sp:IsA("BasePart") then task.spawn(EnemyService.Spawn, stage, sp, owner) end
 	end
 end
 
-local function despawnStage(stage: number)
-	if not spawnedStages[stage] then return end
-	spawnedStages[stage] = nil
+local function despawnSet(ownerId: number, stage: number?)
+	for key in spawnedSets do
+		local uid, st = key:match("^(%d+):(%d+)$")
+		if tonumber(uid) == ownerId and (stage == nil or tonumber(st) == stage) then spawnedSets[key] = nil end
+	end
 	for id, e in EnemyService.Enemies do
-		if e.Stage == stage then
+		if e.Owner and e.Owner.UserId == ownerId and (stage == nil or e.Stage == stage) then
 			EnemyService.Enemies[id] = nil
 			byModel[e.Model] = nil
 			e.Dead = true
@@ -261,6 +271,7 @@ function EnemyService.Damage(e: Enemy, amount: number, player: Player?, knockbac
 		-- players may only damage enemies in stages they have unlocked
 		local hi = player:GetAttribute("Highest") or 1
 		if e.Stage > hi then return end
+		if e.Owner and e.Owner ~= player then return end -- someone else's enemy (invisible to this player)
 		e.Credit[player] = true
 		GameService.Remotes.DamageNumber:FireClient(player, e.Root.Position, amount)
 	end
@@ -271,7 +282,7 @@ function EnemyService.Damage(e: Enemy, amount: number, player: Player?, knockbac
 	if knockback and not e.IsBoss then
 		e.Root.AssemblyLinearVelocity = knockback
 	end
-	GameService.Remotes.Vfx:FireAllClients("Hit", e.Model)
+	if e.Owner then GameService.Remotes.Vfx:FireClient(e.Owner, "Hit", e.Model) else GameService.Remotes.Vfx:FireAllClients("Hit", e.Model) end
 	if e.Hp <= 0 then EnemyService.Kill(e) end
 end
 
@@ -287,33 +298,37 @@ function EnemyService.Kill(e: Enemy)
 		if ex.OnKill then task.spawn(ex.OnKill, e) end
 		return
 	end
-	GameService.Remotes.Vfx:FireAllClients("Death", e.Model.Name, e.Root.Position, Config.Stages[e.Stage].Gate)
-	for player in e.Credit do
-		if player.Parent then GameService.CreditKill(player, e.Stage, e.IsBoss) end
-	end
+	local owner = e.Owner :: Player
+	GameService.Remotes.Vfx:FireClient(owner, "Death", e.Model.Name, e.Root.Position, Config.Stages[e.Stage].Gate)
+	if owner.Parent and e.Credit[owner] then GameService.CreditKill(owner, e.Stage, e.IsBoss) end
 	e.Model:Destroy()
 	local stage = e.Stage
 	local spawnName = e.SpawnName
 	task.delay(e.IsBoss and 6 or 3, function()
-		if not spawnedStages[stage] then return end
+		if not owner.Parent or not spawnedSets[setKey(owner, stage)] then return end
 		local sf = stageFolder(stage)
 		local sp = sf and sf:FindFirstChild("EnemySpawns") and (sf :: any).EnemySpawns:FindFirstChild(spawnName)
-		if sp then EnemyService.Spawn(stage, sp) end
+		if sp then EnemyService.Spawn(stage, sp, owner) end
 	end)
 end
 
-function EnemyService.InRadius(pos: Vector3, radius: number, stageHint: number?): {Enemy}
+local function visibleTo(e: Enemy, viewer: Player?): boolean
+	return viewer == nil or e.Owner == nil or e.Owner == viewer
+end
+EnemyService.VisibleTo = visibleTo
+
+function EnemyService.InRadius(pos: Vector3, radius: number, stageHint: number?, viewer: Player?): {Enemy}
 	local out = {}
 	for _, e in EnemyService.Enemies do
-		if not e.Dead and (e.Root.Position - pos).Magnitude <= radius + (e.IsBoss and 3 or 1.5) then table.insert(out, e) end
+		if not e.Dead and visibleTo(e, viewer) and (e.Root.Position - pos).Magnitude <= radius + (e.IsBoss and 3 or 1.5) then table.insert(out, e) end
 	end
 	return out
 end
 
-function EnemyService.Nearest(pos: Vector3, range: number, facing: Vector3?): Enemy?
+function EnemyService.Nearest(pos: Vector3, range: number, facing: Vector3?, viewer: Player?): Enemy?
 	local best, bestScore = nil, math.huge
 	for _, e in EnemyService.Enemies do
-		if not e.Dead then
+		if not e.Dead and visibleTo(e, viewer) then
 			local d = e.Root.Position - pos
 			local dist = d.Magnitude
 			if dist <= range then
@@ -348,14 +363,16 @@ local function think(e: Enemy, now: number)
 		e.Hum:MoveTo(e.Home)
 		return
 	end
+	-- an enemy only ever chases / hits its owner
 	local target, tdist = nil, math.huge
-	for _, p in Players:GetPlayers() do
-		local char = p.Character
+	local owner = e.Owner
+	if owner and owner.Parent then
+		local char = owner.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hrp and hum and hum.Health > 0 and playerStage(p) == e.Stage then
+		if hrp and hum and hum.Health > 0 and playerStage(owner) == e.Stage then
 			local d = (hrp.Position - e.Root.Position).Magnitude
-			if d < tdist and d < (e.IsBoss and 60 or 38) then target, tdist = p, d end
+			if d < (e.IsBoss and 60 or 38) then target, tdist = owner, d end
 		end
 	end
 	if not target then
@@ -380,8 +397,8 @@ local function think(e: Enemy, now: number)
 			ex.Phase = phase
 			e.Model:SetAttribute("Phase", phase)
 			if phase > 1 then
-				GameService.Remotes.Vfx:FireAllClients("Explosion", "GiantRasengan", e.Root.Position, 16)
-				for _, p in Players:GetPlayers() do if playerStage(p) == e.Stage then GameService.Notify(p, "BossPhase", phase) end end
+				GameService.Remotes.Vfx:FireClient(target, "Explosion", "GiantRasengan", e.Root.Position, 16)
+				GameService.Notify(target, "BossPhase", phase)
 			end
 		end
 		if phase >= 2 and now >= (ex.NextPattern or 0) then
@@ -391,10 +408,10 @@ local function think(e: Enemy, now: number)
 			for k = 1, count do
 				local a = (k / count) * math.pi * 2 + now
 				local at = center + Vector3.new(math.cos(a) * 10, 0, math.sin(a) * 10)
-				GameService.Remotes.Vfx:FireAllClients("BossBlast", e.Model, at, st.Element, st.Gate)
+				GameService.Remotes.Vfx:FireClient(target, "BossBlast", e.Model, at, st.Element, st.Gate)
 				task.delay(1, function()
 					if e.Dead then return end
-					for _, p in Players:GetPlayers() do
+					for _, p in {target} do
 						local c = p.Character
 						local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 						local h = c and c:FindFirstChildOfClass("Humanoid")
@@ -406,11 +423,11 @@ local function think(e: Enemy, now: number)
 		if phase == 3 and now >= (ex.NextUlt or 0) then
 			ex.NextUlt = now + 10
 			local at = e.Root.Position
-			GameService.Remotes.Vfx:FireAllClients("Telegraph", "TailedBeastBomb", at, 30, 1.8)
+			GameService.Remotes.Vfx:FireClient(target, "Telegraph", "TailedBeastBomb", at, 30, 1.8)
 			task.delay(1.8, function()
 				if e.Dead then return end
-				GameService.Remotes.Vfx:FireAllClients("Explosion", "TailedBeastBomb", at, 30)
-				for _, p in Players:GetPlayers() do
+				GameService.Remotes.Vfx:FireClient(target, "Explosion", "TailedBeastBomb", at, 30)
+				for _, p in {target} do
 					local c = p.Character
 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 					local h = c and c:FindFirstChildOfClass("Humanoid")
@@ -430,7 +447,7 @@ local function think(e: Enemy, now: number)
 		if tdist <= reach then
 			e.NextAttack = now + (e.IsBoss and 1.6 or 1.4)
 			e.Model:SetAttribute("AttackAt", workspace:GetServerTimeNow())
-			GameService.Remotes.Vfx:FireAllClients("EnemyMelee", e.Model, st.Element)
+			GameService.Remotes.Vfx:FireClient(target, "EnemyMelee", e.Model, st.Element)
 			task.delay(0.25, function()
 				if e.Dead or hum.Health <= 0 then return end
 				if (hrp.Position - e.Root.Position).Magnitude <= reach + 2 then hurtPlayer(target, hum, e.Damage) end
@@ -439,10 +456,10 @@ local function think(e: Enemy, now: number)
 			-- boss ranged elemental blast, telegraphed
 			e.NextAttack = now + 3.5
 			local at = hrp.Position
-			GameService.Remotes.Vfx:FireAllClients("BossBlast", e.Model, at, st.Element, st.Gate)
+			GameService.Remotes.Vfx:FireClient(target, "BossBlast", e.Model, at, st.Element, st.Gate)
 			task.delay(1, function()
 				if e.Dead then return end
-				for _, p in Players:GetPlayers() do
+				for _, p in {target} do
 					local c = p.Character
 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 					local h = c and c:FindFirstChildOfClass("Humanoid")
@@ -453,7 +470,7 @@ local function think(e: Enemy, now: number)
 				-- final boss teleports behind the player
 				task.delay(1.2, function()
 					if e.Dead or not hrp.Parent then return end
-					GameService.Remotes.Vfx:FireAllClients("Flicker", e.Root.Position, st.Gate)
+					GameService.Remotes.Vfx:FireClient(target, "Flicker", e.Root.Position, st.Gate)
 					e.Root.CFrame = hrp.CFrame * CFrame.new(0, 0, 8)
 				end)
 			end
@@ -474,27 +491,37 @@ function EnemyService.Start()
 			c.DescendantAdded:Connect(function(d) if d:IsA("BasePart") then d.CollisionGroup = "Players" end end)
 		end)
 	end)
-	-- activation: spawn enemies only in stages with players nearby, despawn after they leave
-	local emptySince: {[number]: number} = {}
+	-- activation: each player gets their own enemies for their current stage (and the next unlocked one, so it is
+	-- already populated when they walk through the gate); a player's sets despawn 20 s after they leave
+	local emptySince: {[string]: number} = {}
+	Players.PlayerRemoving:Connect(function(p) despawnSet(p.UserId, nil) end)
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
-			local want: {[number]: boolean} = {}
+			local want: {[string]: boolean} = {}
 			for _, p in Players:GetPlayers() do
 				local s = playerStage(p)
-				if s then
-					want[s] = true
-					if s + 1 <= Config.StageCount and s + 1 <= (p:GetAttribute("Highest") or 1) then want[s + 1] = true end
+				if s and not p:GetAttribute("InLobby") then
+					want[setKey(p, s)] = true
+					ensureSet(p, s)
+					if s + 1 <= Config.StageCount and s + 1 <= (p:GetAttribute("Highest") or 1) then
+						want[setKey(p, s + 1)] = true
+						ensureSet(p, s + 1)
+					end
 				end
 			end
-			for s in want do emptySince[s] = nil; ensureStage(s) end
-			for s in spawnedStages do
-				if not want[s] then
-					emptySince[s] = emptySince[s] or os.clock()
-					if os.clock() - emptySince[s] > 20 then despawnStage(s); emptySince[s] = nil end
+			for key in want do emptySince[key] = nil end
+			for key in spawnedSets do
+				if not want[key] then
+					emptySince[key] = emptySince[key] or os.clock()
+					if os.clock() - emptySince[key] > 20 then
+						local uid, st = key:match("^(%d+):(%d+)$")
+						despawnSet(tonumber(uid) :: number, tonumber(st))
+						emptySince[key] = nil
+					end
 				end
 			end
-			activeStages = want
+			activeKeys = want
 		end
 	end)
 	task.spawn(function()
@@ -502,7 +529,7 @@ function EnemyService.Start()
 			task.wait(0.1)
 			local now = os.clock()
 			for _, e in EnemyService.Enemies do
-				if activeStages[e.Stage] then
+				if e.Owner == nil or activeKeys[setKey(e.Owner, e.Stage)] then
 					local ok, err = pcall(think, e, now)
 					if not ok then warn("[EnemyService]", err) end
 				end

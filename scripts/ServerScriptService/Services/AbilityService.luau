@@ -80,7 +80,7 @@ R.Attack.OnServerEvent:Connect(function(p: Player)
 	lastM1[p] = now
 	local hrp = rootOf(p)
 	if not hrp then return end
-	local target = EnemyService.Nearest(hrp.Position, M1_RANGE, hrp.CFrame.LookVector)
+	local target = EnemyService.Nearest(hrp.Position, M1_RANGE, hrp.CFrame.LookVector, p)
 	p.Character:SetAttribute("PunchAt", workspace:GetServerTimeNow())
 	if not target then return end
 	local dmg = AbilityService.BaseDamage(p)
@@ -100,7 +100,7 @@ function K.projectile(p, j, hrp, target, dmg)
 	task.delay(dist / j.Speed, function()
 		if target.Dead then return end
 		vfx("Impact", j.Id, target.Root.Position, j.Radius)
-		for _, e in EnemyService.InRadius(target.Root.Position, j.Radius) do EnemyService.Damage(e, dmg * (e == target and 1 or 0.5), p, knock(hrp.Position, e, 25)) end
+		for _, e in EnemyService.InRadius(target.Root.Position, j.Radius, nil, p) do EnemyService.Damage(e, dmg * (e == target and 1 or 0.5), p, knock(hrp.Position, e, 25)) end
 	end)
 	return true
 end
@@ -108,7 +108,7 @@ end
 -- several projectiles distributed over nearby enemies
 function K.multiprojectile(p, j, hrp, target, dmg)
 	if not target then return false end
-	local list = EnemyService.InRadius(hrp.Position, j.Range)
+	local list = EnemyService.InRadius(hrp.Position, j.Range, nil, p)
 	table.sort(list, function(a, b) return (a.Root.Position - hrp.Position).Magnitude < (b.Root.Position - hrp.Position).Magnitude end)
 	for i = 1, j.Count do
 		local e = list[((i - 1) % #list) + 1]
@@ -136,7 +136,7 @@ function K.dash(p, j, hrp, target, dmg)
 		vfx("Dash", j.Id, hrp.Position, tp - dir * 3)
 		hrp.CFrame = CFrame.lookAt(tp - dir * 3.5, tp - dir * 3.5 + dir)
 		vfx("Impact", j.Id, tp, j.Radius)
-		for _, e in EnemyService.InRadius(tp, j.Radius) do EnemyService.Damage(e, dmg * (e == target and 1 or 0.6), p, knock(hrp.Position, e, 55)) end
+		for _, e in EnemyService.InRadius(tp, j.Radius, nil, p) do EnemyService.Damage(e, dmg * (e == target and 1 or 0.6), p, knock(hrp.Position, e, 55)) end
 	end)
 	return true
 end
@@ -179,7 +179,7 @@ function K.clones(p, j, hrp, target, dmg)
 			local hum = c:FindFirstChildOfClass("Humanoid")
 			while c.Parent and os.clock() < stop do
 				local croot = c.PrimaryPart :: BasePart
-				local e = EnemyService.Nearest(croot.Position, j.Range)
+				local e = EnemyService.Nearest(croot.Position, j.Range, nil, p)
 				if e and hum then
 					if (e.Root.Position - croot.Position).Magnitude > 5 then
 						hum:MoveTo(e.Root.Position)
@@ -205,7 +205,7 @@ function K.beam(p, j, hrp, target, dmg)
 	local from = hrp.Position
 	vfx("Beam", j.Id, from, dir, j.Range)
 	task.delay(0.2, function()
-		for _, e in EnemyService.InRadius(from, j.Range) do
+		for _, e in EnemyService.InRadius(from, j.Range, nil, p) do
 			local rel = e.Root.Position - from
 			local along = rel:Dot(dir)
 			if along > 0 and (rel - dir * along).Magnitude <= j.Radius + 2 then EnemyService.Damage(e, dmg, p, dir * 30) end
@@ -221,7 +221,7 @@ function K.cone(p, j, hrp, target, dmg)
 	local cosA = math.cos(math.rad(j.Radius / 2))
 	vfx("Cone", j.Id, from, dir, j.Range, j.Radius, j.Count)
 	task.delay(0.25, function()
-		for _, e in EnemyService.InRadius(from, j.Range) do
+		for _, e in EnemyService.InRadius(from, j.Range, nil, p) do
 			local rel = e.Root.Position - from
 			if rel.Magnitude < 4 or flat(rel):Dot(dir) >= cosA then EnemyService.Damage(e, dmg, p, knock(from, e, j.Id == "GreatBreakthrough" and 90 or 35)) end
 		end
@@ -260,7 +260,7 @@ function K.aoe(p, j, hrp, target, dmg)
 	vfx("Burst", j.Id, p.Character, j.Radius)
 	task.delay(0.15, function()
 		if not hrp.Parent then return end
-		for _, e in EnemyService.InRadius(hrp.Position, j.Radius) do
+		for _, e in EnemyService.InRadius(hrp.Position, j.Radius, nil, p) do
 			e.RootedUntil = os.clock() + 0.8
 			EnemyService.Damage(e, dmg, p, knock(hrp.Position, e, 40))
 		end
@@ -273,7 +273,7 @@ function K.evade(p, j, hrp, target, dmg)
 	local b = getBuffs(p)
 	b.Invuln = os.clock() + j.Duration
 	vfx("Log", hrp.Position)
-	local e = target or EnemyService.Nearest(hrp.Position, 40)
+	local e = target or EnemyService.Nearest(hrp.Position, 40, nil, p)
 	if e then
 		task.delay(0.35, function()
 			if e.Dead or not hrp.Parent then return end
@@ -339,12 +339,12 @@ function K.summon(p, j, hrp, target, dmg)
 			task.wait(1.3)
 			if not toad.Parent then break end
 			local pos = (toad.PrimaryPart :: BasePart).Position
-			local e = EnemyService.Nearest(pos, j.Range)
+			local e = EnemyService.Nearest(pos, j.Range, nil, p)
 			if e then
 				local land = e.Root.Position - Vector3.new(0, 3, 0)
 				vfx("ToadHop", toad, land)
 				toad:PivotTo(CFrame.lookAt(land, land + flat(land - pos)) * CFrame.new(0, 0, 0))
-				for _, x in EnemyService.InRadius(land, 12) do EnemyService.Damage(x, dmg, p, knock(land, x, 40)) end
+				for _, x in EnemyService.InRadius(land, 12, nil, p) do EnemyService.Damage(x, dmg, p, knock(land, x, 40)) end
 			end
 		end
 		if toad.Parent then vfx("Smoke", (toad.PrimaryPart :: BasePart).Position, 4); toad:Destroy() end
@@ -368,7 +368,7 @@ function K.wall(p, j, hrp, target, dmg)
 	w.Parent = workspace
 	table.insert(b.Walls, w)
 	vfx("EarthWall", w)
-	for _, e in EnemyService.InRadius(center, j.Radius + 4) do EnemyService.Damage(e, dmg, p, dir * 70 + Vector3.new(0, 30, 0)) end
+	for _, e in EnemyService.InRadius(center, j.Radius + 4, nil, p) do EnemyService.Damage(e, dmg, p, dir * 70 + Vector3.new(0, 30, 0)) end
 	task.delay(j.Duration, function()
 		local i = table.find(b.Walls, w)
 		if i then table.remove(b.Walls, i) end
@@ -387,7 +387,7 @@ function K.shield(p, j, hrp, target, dmg)
 		for _ = 1, math.floor(j.Duration) do
 			task.wait(1)
 			if not hrp.Parent then break end
-			for _, e in EnemyService.InRadius(hrp.Position, j.Radius) do EnemyService.Damage(e, dmg, p, knock(hrp.Position, e, 35)) end
+			for _, e in EnemyService.InRadius(hrp.Position, j.Radius, nil, p) do EnemyService.Damage(e, dmg, p, knock(hrp.Position, e, 35)) end
 		end
 	end)
 	return true
@@ -405,7 +405,7 @@ function K.piercing(p, j, hrp, target, dmg)
 			local travelled = (os.clock() - t0) * j.Speed
 			if travelled > j.Range then break end
 			local head = from + dir * travelled
-			for _, e in EnemyService.InRadius(head, j.Radius) do
+			for _, e in EnemyService.InRadius(head, j.Radius, nil, p) do
 				if not hit[e] then hit[e] = true; EnemyService.Damage(e, dmg, p, dir * 50 + Vector3.new(0, 25, 0)) end
 			end
 			task.wait(0.05)
@@ -428,12 +428,12 @@ function K.bigprojectile(p, j, hrp, target, dmg)
 		vfx("BigProjectile", j.Id, from, dest, t, j.Radius)
 		task.delay(t, function()
 			vfx("Explosion", j.Id, dest, j.Radius)
-			for _, e in EnemyService.InRadius(dest, j.Radius) do EnemyService.Damage(e, dmg, p, knock(dest, e, 80)) end
+			for _, e in EnemyService.InRadius(dest, j.Radius, nil, p) do EnemyService.Damage(e, dmg, p, knock(dest, e, 80)) end
 			-- rasenshuriken lingers as a cutting sphere
 			if j.Id == "Rasenshuriken" then
 				for _ = 1, 3 do
 					task.wait(0.35)
-					for _, e in EnemyService.InRadius(dest, j.Radius) do EnemyService.Damage(e, dmg * 0.15, p) end
+					for _, e in EnemyService.InRadius(dest, j.Radius, nil, p) do EnemyService.Damage(e, dmg * 0.15, p) end
 				end
 			end
 		end)
@@ -452,7 +452,7 @@ function K.slam(p, j, hrp, target, dmg)
 		if not hrp.Parent then return end
 		hrp.CFrame = CFrame.new(dest + Vector3.new(0, 3, 0)) * (hrp.CFrame - hrp.Position)
 		vfx("Explosion", j.Id, dest, j.Radius)
-		for _, e in EnemyService.InRadius(dest, j.Radius) do EnemyService.Damage(e, dmg, p, knock(dest, e, 90)) end
+		for _, e in EnemyService.InRadius(dest, j.Radius, nil, p) do EnemyService.Damage(e, dmg, p, knock(dest, e, 90)) end
 	end)
 	return true
 end
@@ -464,7 +464,7 @@ function K.strike(p, j, hrp, target, dmg)
 	vfx("Telegraph", j.Id, dest, j.Radius, j.Duration)
 	task.delay(j.Duration, function()
 		vfx("Explosion", j.Id, dest, j.Radius)
-		for _, e in EnemyService.InRadius(dest, j.Radius) do
+		for _, e in EnemyService.InRadius(dest, j.Radius, nil, p) do
 			e.RootedUntil = os.clock() + 1.5
 			EnemyService.Damage(e, dmg, p, Vector3.new(0, 40, 0))
 		end
@@ -475,7 +475,7 @@ end
 -- damage over time that sticks to everything near the focus (amaterasu)
 function K.dot(p, j, hrp, target, dmg)
 	if not target then return false end
-	local victims = EnemyService.InRadius(target.Root.Position, j.Radius)
+	local victims = EnemyService.InRadius(target.Root.Position, j.Radius, nil, p)
 	local ticks = math.floor(j.Duration / 0.5)
 	for _, e in victims do
 		vfx("Burn", j.Id, e.Model, j.Duration)
@@ -500,11 +500,11 @@ function K.transform(p, j, hrp, target, dmg)
 		local stop = os.clock() + j.Duration
 		while os.clock() < stop and hrp.Parent do
 			task.wait(1)
-			local e = EnemyService.Nearest(hrp.Position, j.Range)
+			local e = EnemyService.Nearest(hrp.Position, j.Range, nil, p)
 			if e then
 				local dir = flat(e.Root.Position - hrp.Position)
 				vfx("Swing", p.Character, dir)
-				for _, x in EnemyService.InRadius(hrp.Position + dir * (j.Radius * 0.6), j.Radius) do EnemyService.Damage(x, dmg, p, dir * 45) end
+				for _, x in EnemyService.InRadius(hrp.Position + dir * (j.Radius * 0.6), j.Radius, nil, p) do EnemyService.Damage(x, dmg, p, dir * 45) end
 			end
 		end
 	end)
@@ -515,7 +515,7 @@ end
 function K.pull(p, j, hrp, target, dmg)
 	local center = (target and target.Root.Position or hrp.Position + flat(hrp.CFrame.LookVector) * 20) + Vector3.new(0, 1, 0)
 	vfx("Planetary", center, j.Radius, j.Duration)
-	local victims = EnemyService.InRadius(center, j.Radius)
+	local victims = EnemyService.InRadius(center, j.Radius, nil, p)
 	task.spawn(function()
 		local steps = math.floor(j.Duration / 0.1)
 		for s = 1, steps do
@@ -531,7 +531,7 @@ function K.pull(p, j, hrp, target, dmg)
 			task.wait(0.1)
 		end
 		vfx("Explosion", "PlanetaryDevastation", center, j.Radius * 0.6)
-		for _, e in EnemyService.InRadius(center, j.Radius * 0.6) do EnemyService.Damage(e, dmg * 0.7, p, Vector3.new(0, 60, 0)) end
+		for _, e in EnemyService.InRadius(center, j.Radius * 0.6, nil, p) do EnemyService.Damage(e, dmg * 0.7, p, Vector3.new(0, 60, 0)) end
 	end)
 	return true
 end
@@ -553,7 +553,7 @@ R.Cast.OnServerEvent:Connect(function(p: Player, slot: any)
 	if now < (cds[jid] or 0) - TOLERANCE then return end
 	local hrp = rootOf(p)
 	if not hrp then return end
-	local target = EnemyService.Nearest(hrp.Position, j.Range > 0 and j.Range or 30, hrp.CFrame.LookVector)
+	local target = EnemyService.Nearest(hrp.Position, j.Range > 0 and j.Range or 30, hrp.CFrame.LookVector, p)
 	local dmg = AbilityService.BaseDamage(p) * j.DamageMult
 	local handler = K[j.Kind]
 	if not handler then return end

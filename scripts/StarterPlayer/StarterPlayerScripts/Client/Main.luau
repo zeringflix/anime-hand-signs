@@ -139,6 +139,8 @@ end
 
 Menus.Init(ctx)
 task.spawn(function() -- lobby hub (issue #14); isolated so a lobby error can't break core UI
+	local okV, errV = pcall(function() require(Client:WaitForChild("EnemyVisibility")).Init() end) -- per-player enemies
+	if not okV then warn("[EnemyVisibility] init failed:", errV) end
 	local ok, err = pcall(function() require(Client:WaitForChild("Lobby")).Init(ctx) end)
 	if not ok then warn("[Lobby] init failed:", err) end
 end)
@@ -242,7 +244,8 @@ local function nearestEnemy(range: number): Model?
 	local best, bd = nil, range
 	for _, m in enemiesFolder:GetChildren() do
 		local er = m:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if er and (m:GetAttribute("Hp") or 1) > 0 then
+		local mine = m:GetAttribute("OwnerId") == nil or m:GetAttribute("OwnerId") == player.UserId
+		if er and mine and (m:GetAttribute("Hp") or 1) > 0 then
 			local d = (er.Position - r.Position).Magnitude
 			if d < bd then best, bd = m, d end
 		end
@@ -470,7 +473,8 @@ task.spawn(function()
 
 		local boss
 		for _, m in enemiesFolder:GetChildren() do
-			if m:GetAttribute("Boss") and m:GetAttribute("Stage") == inStage and (m:GetAttribute("Hp") or 0) > 0 then boss = m break end
+			local mine = m:GetAttribute("OwnerId") == nil or m:GetAttribute("OwnerId") == player.UserId
+			if mine and m:GetAttribute("Boss") and m:GetAttribute("Stage") == inStage and (m:GetAttribute("Hp") or 0) > 0 then boss = m break end
 		end
 		E.Boss.Visible = boss ~= nil and not inLobby
 		if boss then
