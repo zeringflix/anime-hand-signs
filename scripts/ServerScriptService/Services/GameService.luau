@@ -208,6 +208,16 @@ end)
 
 ---------------------------------------------------------------- stage progression (per player)
 GameService.PendingPads = {} :: {[Player]: {[string]: boolean}}
+-- GATES (owner request): you can't walk into the next stage until this stage's enemies are dead. GateReach is the
+-- furthest stage the player may stand in right now: entering from the lobby = 1, teleporting = that stage, clearing
+-- the reach stage opens its gate (reach + 1). Even previously-cleared stages must be cleared again to walk on.
+GameService.GateReach = {} :: {[Player]: number}
+function GameService.SetReach(player: Player, stage: number)
+	stage = math.clamp(stage, 1, Config.StageCount)
+	if GameService.GateReach[player] == stage then return end
+	GameService.GateReach[player] = stage
+	player:SetAttribute("GateReach", stage) -- client colours the gate walls from this; the guard below enforces it
+end
 function GameService.RemainingFor(data: any, stage: number): number
 	return math.max(0, Config.Economy.KillsToClear - (data.StageKills[tostring(stage)] or 0))
 end
@@ -231,6 +241,7 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 		end
 		GameService.PendingPads[player] = GameService.PendingPads[player] or {}
 		GameService.PendingPads[player][key] = true
+		if (GameService.GateReach[player] or 1) <= stage then GameService.SetReach(player, math.min(stage + 1, data.HighestUnlockedStage)) end
 		GameService.AddXP(player, st.XP * 6)
 		GameService.Notify(player, "StageCleared", {Stage = stage, First = first})
 		GameService.CheckUnlocks(player)
@@ -358,6 +369,7 @@ GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player,
 	stage = math.floor(stage)
 	if stage < 0 or stage > data.HighestUnlockedStage then return end -- 0 = lobby
 	if stage > 0 then data.CurrentStage = stage end
+	GameService.SetReach(player, math.max(stage, 1))
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then root.CFrame = GameService.StageSpawnCFrame(stage) end
@@ -401,7 +413,19 @@ task.spawn(function()
 					root.CFrame = GameService.StageSpawnCFrame(data.HighestUnlockedStage)
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
-				player:SetAttribute("InLobby", x < -Config.StageLength / 2)
+				local inLobby = x < -Config.StageLength / 2
+				player:SetAttribute("InLobby", inLobby)
+				if inLobby then GameService.SetReach(player, 1) end
+				-- closed gate: stand in front of it until this stage's enemies are dead
+				local reach = GameService.GateReach[player] or 1
+				local gateX = (reach - 1) * Config.StageLength + Config.StageLength / 2 - 4
+				if not inLobby and x > gateX + 3 then
+					local p = root.Position
+					root.CFrame = CFrame.new(gateX - 8, p.Y + 0.5, p.Z) * root.CFrame.Rotation
+					root.AssemblyLinearVelocity = Vector3.zero
+					x = gateX - 8
+					GameService.Notify(player, "Toast", "Defeat the enemies to open the gate!")
+				end
 				local okZ, zm = pcall(GameService.StationMultiplier, player, data, root.Position)
 				zm = (okZ and x < -Config.StageLength / 2) and zm or 1
 				if player:GetAttribute("ZoneMult") ~= zm then player:SetAttribute("ZoneMult", zm) end
@@ -462,7 +486,7 @@ function GameService.Start()
 		player.CharacterAdded:Connect(spawnAt)
 		if player.Character then task.spawn(spawnAt, player.Character) end
 	end)
-	Players.PlayerRemoving:Connect(function(p) GameService.PendingPads[p] = nil; lastEquip[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p) GameService.PendingPads[p] = nil; lastEquip[p] = nil; GameService.GateReach[p] = nil end)
 end
 
 return GameService

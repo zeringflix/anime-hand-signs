@@ -111,34 +111,9 @@ local function restyleGate(stage: Model, i: number, frame: Color3, beam: Color3,
 	end
 	barrier.Color = tint
 	barrier.Material = Enum.Material.SmoothPlastic
-	local nxt = Config.Stages[i + 1]
-	local st = Config.Stages[i]
-	local title = nxt and ("NEXT: STAGE " .. (i + 1) .. " · " .. string.upper(nxt.Name)) or "FINAL STAGE"
-	local info = (nxt and ("Recommended " .. Config.Format(nxt.Recommended) .. " Hand Signs   ·   ") or "") .. "Clear reward +" .. Config.Format(st.Trophies * 10) .. " 🏆"
-	for side, gname in {[-1] = "FrontGui", [1] = "BackGui"} do
-		local plate = P({Name = "SignPlate" .. (side < 0 and "Front" or "Back"), Size = Vector3.new(0.5, 11, 36),
-			CFrame = CFrame.new(gx + side * 0.9, 25, 0), Color = C(34, 28, 40), CanCollide = false, CastShadow = false, Parent = cur})
-		P({Size = Vector3.new(0.7, 11.8, 36.8), CFrame = plate.CFrame * CFrame.new(-side * 0.2, 0, 0), Color = beam, CanCollide = false, Parent = cur})
-		for _, cz in {-13, 13} do
-			P({Size = Vector3.new(0.4, 13, 0.4), CFrame = CFrame.new(gx + side * 0.9, 37, cz), Color = C(60, 54, 62), CanCollide = false, Parent = cur})
-		end
-		local g = barrier:FindFirstChild(gname) :: SurfaceGui?
-		if g then
-			g.Adornee = plate
-			g.Face = side < 0 and Enum.NormalId.Left or Enum.NormalId.Right
-			g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-			g.PixelsPerStud = 24
-			g.LightInfluence = 0
-			for _, c in g:GetChildren() do c:Destroy() end
-			local f = Instance.new("Frame")
-			f.Name = "Frame"
-			f.BackgroundTransparency = 1
-			f.Size = UDim2.fromScale(1, 1)
-			f.Parent = g
-			label(f, title, 0.06, 0.24, C(255, 214, 90), 3, "StageNum")
-			label(f, "5 LEFT", 0.33, 0.36, Color3.new(1, 1, 1), 4, "Left")
-			label(f, info, 0.74, 0.18, C(200, 235, 255), 2, "Info")
-		end
+	-- gate walls carry no text (owner request); the client colours them dark/light grey by gate state
+	for _, g in barrier:GetChildren() do
+		if g:IsA("SurfaceGui") then g.Enabled = false end
 	end
 end
 

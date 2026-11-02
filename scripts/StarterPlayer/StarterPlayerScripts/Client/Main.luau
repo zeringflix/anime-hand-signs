@@ -426,30 +426,34 @@ end)
 
 ---------------------------------------------------------------- gates (per-player view of the shared course)
 local course = workspace:WaitForChild("StageCourse")
+-- gate walls: dark translucent grey while this stage's enemies are alive, light translucent grey once cleared.
+-- No text on the walls (stage info lives on the gate's top beam). The server guard is the real check.
+local GATE_CLOSED, GATE_OPEN = Color3.fromRGB(58, 58, 66), Color3.fromRGB(214, 214, 222)
 function updateGates()
-	local highest = player:GetAttribute("Highest") or 1
-	local kills = ctx.Profile and ctx.Profile.StageKills or {}
+	local reach = player:GetAttribute("GateReach") or 1
 	for i = 1, Config.StageCount do
 		local sf = course:FindFirstChild(string.format("Stage%02d", i))
 		local barrier = sf and sf:FindFirstChild("Gate") and sf.Gate:FindFirstChild("Barrier") :: BasePart?
 		if barrier then
-			local open = highest > i
-			barrier.CanCollide = not open -- client-side only; the server's gate guard is the real check
-			barrier.Transparency = open and 0.72 or 0.3
-			local txt
-			if open then txt = "OPEN \u{2192}"
-			elseif i > highest then txt = "\u{1F512} LOCKED"
-			else
-				local left = Config.Economy.KillsToClear - (kills[tostring(i)] or 0)
-				txt = left <= 0 and "STAGE CLEARED!" or (left .. " LEFT")
+			local open = i < reach
+			barrier.CanCollide = not open
+			barrier.Color = open and GATE_OPEN or GATE_CLOSED
+			barrier.Material = Enum.Material.SmoothPlastic
+			barrier.Transparency = open and 0.78 or 0.4
+			for _, g in barrier:GetChildren() do
+				if g:IsA("SurfaceGui") or g:IsA("BillboardGui") then g.Enabled = false end
 			end
-			for _, g in {barrier:FindFirstChild("FrontGui"), barrier:FindFirstChild("BackGui")} do
-				local l = g and g:FindFirstChild("Left", true) :: TextLabel?
-				if l then l.Text = txt end
+			-- older pilot builds hung sign plates on the wall: hide them locally
+			local pilot = sf:FindFirstChild("Pilot")
+			if pilot then
+				for _, d in pilot:GetChildren() do
+					if d:IsA("BasePart") and d.Name:find("^SignPlate") then d.LocalTransparencyModifier = 1; d.CanCollide = false end
+				end
 			end
 		end
 	end
 end
+player:GetAttributeChangedSignal("GateReach"):Connect(function() updateGates() end)
 course.ChildAdded:Connect(function() task.wait(1); updateGates() end)
 player:GetAttributeChangedSignal("Highest"):Connect(function() updateGates() end)
 
