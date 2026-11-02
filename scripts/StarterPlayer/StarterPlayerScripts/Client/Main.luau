@@ -185,6 +185,7 @@ local function refreshAbilities()
 	end
 	-- one emblem motif: the equipped hand sign's icon on ATTACK, E and R (issue #14)
 	if Assets.SignIcons and Assets.SignIcons[s.Id] then E.Attack.Icon.Image = Assets.SignIcons[s.Id] end
+	if E.SignsIcon and Assets.SignIcons and Assets.SignIcons[s.Id] then E.SignsIcon.Image = Assets.SignIcons[s.Id] end
 end
 player:GetAttributeChangedSignal("Equipped"):Connect(function()
 	refreshAbilities()

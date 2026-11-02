@@ -41,13 +41,14 @@ Assets.JutsuIcon = {
 function Assets.Icon(name: string?): string
 	return (name and Assets.Icons[name]) or ""
 end
--- Hand sign icons (owner-supplied concept sheet, cropped 256px). One per sign; used on the showcase,
--- Signs menu and the ATTACK/E/R buttons (the equipped sign's icon is the shared emblem motif).
+-- Hand-sign artwork (issue #14 UI overhaul): the owner's approved hands-only sheet, cut into tight transparent
+-- 512px PNGs (assets/icons/hand-signs-art). Backgrounds/rarity colours/borders are separate UI elements.
+-- Pose mapping follows the traditional seals and is flagged for owner confirmation. Advanced + Forbidden have no
+-- approved art yet: UI shows a "?" placeholder (do not substitute other poses).
 Assets.SignIcons = {
-	Tiger = "rbxassetid://99591454940817", Ram = "rbxassetid://87059973075909", Snake = "rbxassetid://99148539706051",
-	Rat = "rbxassetid://73540697854711", Ox = "rbxassetid://122285163127078", Hare = "rbxassetid://79240606121292",
-	Horse = "rbxassetid://113152008918915", Boar = "rbxassetid://75106189193017", Dog = "rbxassetid://133630291737514",
-	Bird = "rbxassetid://94440236306141", Monkey = "rbxassetid://116319479099475", Dragon = "rbxassetid://97736950766886",
-	Advanced = "rbxassetid://100162624932781", Forbidden = "rbxassetid://136928143422435",
+	Tiger = "rbxassetid://128950891900706", Ram = "rbxassetid://84582740073358", Snake = "rbxassetid://133023451981925",
+	Rat = "rbxassetid://107997606637837", Ox = "rbxassetid://93339312551316", Hare = "rbxassetid://100139230981656",
+	Horse = "rbxassetid://113013852531459", Boar = "rbxassetid://124070994068092", Dog = "rbxassetid://82596595507187",
+	Bird = "rbxassetid://112209026976435", Monkey = "rbxassetid://90326668261681", Dragon = "rbxassetid://136948454563587",
 }
 return Assets
