@@ -9,7 +9,7 @@
 --     Touching the portal opens the Worlds menu (or sends a brand-new player straight to Stage 1).
 --   * +1 Anime Eyes floor: lime studded lawns cut by lavender checker ROADS with dark-purple borders.
 --   * ~10 stone lanterns spread around the lobby (no more lantern rows along the path).
---   * 13 ORIGINAL training stations modelled in Blender (tools/blender/training_stations.py -> StationKit).
+--   * 13 ORIGINAL training stations modelled in Blender (tools/blender/training_stations_v2.py -> StationKit).
 --   * 14-pad hand-sign showcase (cartoon hand art, Anime Eyes-style text: name / xN / price or OWNED/EQUIPPED).
 --   * 4 eggs (2 Trophies, 2 Robux), shrunk ~20%; Robux prices in animated rainbow text (client).
 --   * Special pet pedestal sells the Nine-Tail Spirit Fox (developer product; Id 0 = not available yet).
@@ -231,7 +231,7 @@ local function buildCliffs()
 	end
 	-- a few small pines / bushes on the lawns (never on a road)
 	local deco = group("LawnTrees", g)
-	for _, pnt in {{-24, 20}, {24, 22}, {-24, -20}, {26, -18}, {-130, 30}, {-130, -20}, {136, 30}, {28, -118}, {-28, -118}, {-60, 30}} do
+	for _, pnt in {{-24, 20}, {-24, -20}, {26, -18}, {-130, 30}, {-130, -20}, {146, -20}, {28, -118}, {-28, -118}, {-60, 30}} do -- kept clear of station plots
 		if not inRoad(pnt[1], pnt[2]) then pine(deco, pnt[1], pnt[2], 0, 0.85) end
 	end
 end
@@ -367,11 +367,12 @@ local function buildLandmark()
 end
 
 ---------------------------------------------------------------- training field: 13 Blender stations (east half)
+-- {x, z, yaw}: yaw turns the Blender front (Roblox +Z) toward the nearest cross road (0 = faces +Z / the spawn side)
 local STATION_SLOTS = {
-	{40, 28}, {70, 28}, {100, 28}, {130, 28},       -- near the spawn: X2 X3 X5 X7
-	{40, 2}, {70, 2}, {100, 2}, {130, 2},           -- X8$ X10 X12 X20
-	{40, -72}, {70, -72}, {100, -72}, {130, -72},   -- X25$ X35 X40 X50$
-	{85, -104},                                     -- X250$ (big) at the far end
+	{40, 28, 0}, {70, 28, 0}, {100, 28, 0}, {130, 28, 0},           -- near the spawn, face the south cross road: X2 X3 X5 X7
+	{40, 2, 180}, {70, 2, 180}, {100, 2, 180}, {130, 2, 180},       -- face the north cross road: X8$ X10 X12 X20
+	{40, -72, 0}, {70, -72, 0}, {100, -72, 0}, {130, -72, 0},       -- beyond the north cross road, facing it: X25$ X35 X40 X50$
+	{85, -104, 0},                                                  -- X250$ (big) at the far end
 }
 local STATION_MODEL = {"Dummy", "Ring", "ChakraPool", "Forge", "GoldenDojo", "ScrollTemple", "StormPagoda", "GravitySeal", "ThunderDome",
 	"CrimsonAltar", "VoidTotem", "DragonGate", "SageThrone"}
@@ -391,7 +392,7 @@ local function buildStations()
 			local mdl = (src :: Model):Clone()
 			mdl.Name = "StationModel"
 			if big then mdl:ScaleTo(1.35) end
-			mdl:PivotTo(CFrame.new(W(x, z, 0)) * CFrame.Angles(0, math.rad(180), 0)) -- front faces the main road / spawn
+			mdl:PivotTo(CFrame.new(W(x, z, 0)) * CFrame.Angles(0, math.rad(slot[3] or 0), 0)) -- front faces the nearest cross road
 			mdl.Parent = m
 			local cf, sz = mdl:GetBoundingBox()
 			top = (cf.Position.Y + sz.Y / 2) - ORIGIN.Y
@@ -404,7 +405,7 @@ local function buildStations()
 		end
 		local zone = P({Name = "Zone", Size = Vector3.new(half * 2, 14, half * 2), CFrame = CFrame.new(W(x, z, 7)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
 		zone:SetAttribute("StationIndex", i)
-		if st.Mult >= 25 then beam(m, x + half - 1, z - half + 1, 3, st.Color) end
+		-- (light pillars now come from the Blender station models themselves)
 		-- label: "X2 HAND SIGNS" + price (rebirth icon + count, or Robux in rainbow) — nothing else (declutter)
 		local bb = billboard(anchor(m, x, z, top + 4), Vector2.new(15, 5.6), 0, 170, "Card")
 		local t = text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.55), st.Color, 4, "Mult"); t.Font = Enum.Font.LuckiestGuy
