@@ -443,13 +443,15 @@ local function buildStations()
 	local g = group("TrainingStations")
 	g:SetAttribute("Note", "ZoneMult applied server-side by GameService from SystemsConfig.TrainingStations. Models: Blender (StationKit).")
 	local kit = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("BlenderStations")
+	-- Visual Lock pilot: real Blender meshes imported with the Studio 3D Importer win over the JSON-rebuilt parts
+	local meshKit = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("MeshStations")
 	for i, st in SC.TrainingStations do
 		local slot = STATION_SLOTS[i]
 		local x, z = slot[1], slot[2]
 		local m = group("Station" .. i, g)
 		m:SetAttribute("StationIndex", i)
 		local big = i == #SC.TrainingStations
-		local src = kit and kit:FindFirstChild(STATION_MODEL[i])
+		local src = (meshKit and meshKit:FindFirstChild(STATION_MODEL[i])) or (kit and kit:FindFirstChild(STATION_MODEL[i]))
 		local top = 16
 		if src then
 			local mdl = (src :: Model):Clone()
@@ -465,7 +467,8 @@ local function buildStations()
 			local bx, bz, baseY = W(x, z, 0).X, W(x, z, 0).Z, nil
 			if beamPart then
 				local bp = beamPart :: BasePart
-				bx, bz, baseY = bp.Position.X, bp.Position.Z, bp.Position.Y - bp.Size.X / 2 - ORIGIN.Y
+				local len = bp:IsA("MeshPart") and bp.Size.Y or bp.Size.X -- Part cylinders run along X, imported meshes stand on Y
+				bx, bz, baseY = bp.Position.X, bp.Position.Z, bp.Position.Y - len / 2 - ORIGIN.Y
 				for _, d in mdl:GetDescendants() do
 					if d:IsA("BasePart") and d ~= bp and d.Material == Enum.Material.Neon and math.abs(d.Position.X - bx) < 0.08
 						and math.abs(d.Position.Z - bz) < 0.08 and math.abs(d.Size.X - bp.Size.X) < 0.08 then d:Destroy() end
