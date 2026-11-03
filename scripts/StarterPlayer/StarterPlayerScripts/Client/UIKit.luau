@@ -81,14 +81,15 @@ U.TONES = {
 
 -- raised studs (owner: "studify the ui"): the Studs UI Pack 2 stud texture, clearly visible, fading slightly
 -- towards the bottom like the pack. Old callers pass transparencies tuned for the previous texture; clamp them.
--- owner reference 2026-11-02 (Daily Rewards screenshot): BIG rounded square studs with a lit top edge and soft shadow.
--- Original texture (vfx/ui_studs.py), one stud per tile; callers' old tile sizes are scaled up ~1.35x (min 30 px).
-U.STUDS = "rbxassetid://84866711570025"
+-- owner 2026-11-02: THE owner's stud texture (assets/textures/owner_studs_source.png, 8x8 studs per sheet), converted to a
+-- white/black alpha overlay (owner_studs_overlay.png) so it shades every tile colour the same way.
+U.STUDS = "rbxassetid://118774955486499"
+U.STUDS_PER_SHEET = 8
 U.STUDS_PACK = "rbxassetid://89333738374139" -- Studs UI Pack 2 texture (kept for reference)
 function U.studs(parent: Instance, transp: number?, tile: number?): ImageLabel
-	local px = math.max(30, math.floor((tile or 34) * 1.35))
+	local px = math.max(30, math.floor((tile or 34) * 1.35)) * U.STUDS_PER_SHEET -- tile = size of ONE stud
 	local s = U.new("ImageLabel", {Name = "Studs", BackgroundTransparency = 1, Image = U.STUDS, ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp((transp or 0.1) * 0.5, 0, 0.35), Size = UDim2.fromScale(1, 1), Parent = parent})
+		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp((transp or 0.1) * 0.4, 0, 0.3), Size = UDim2.fromScale(1, 1), Parent = parent})
 	if parent:IsA("GuiObject") then s.ZIndex = parent.ZIndex end
 	U.corner(8).Parent = s
 	return s

@@ -24,7 +24,7 @@ Assets.Icons = {
 	SoundOff = "rbxassetid://133728784822044", CheckButton = "rbxassetid://106347711186346",
 }
 -- bevelled square studs (original texture, assets/textures/studs_square.png) for studded UI backgrounds
-Assets.Studs = "rbxassetid://109401654557790"
+Assets.Studs = "rbxassetid://118774955486499" -- owner stud texture (8x8 studs per sheet), white/black alpha overlay
 
 -- jutsu VFX family -> icon
 Assets.JutsuIcon = {

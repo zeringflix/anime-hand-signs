@@ -1,7 +1,6 @@
 --!nonstrict
 -- StageGates (edit-time tool, owner 2026-11-02 "like +1 Anime Eyes"): adds the big entrance banner
--- "STAGE N / RECOMMENDED CHAKRA X" (or "BOSS STAGE") over every stage's entry, and restyles Stage 1's start wall as
--- the pink STAGE 1 gate the lobby opens onto. Additive: never deletes stage geometry, only recolours Stage 1's
+-- "STAGE N / RECOMMENDED CHAKRA X" (or "BOSS STAGE") over the entry of stages 2-50 (Stage 1 is left as built). Additive: never deletes stage geometry, only recolours Stage 1's
 -- StartWall pieces and replaces its old small arch sign. Safe to re-run (old EntryBanner models are replaced).
 --
 --   require(game.ServerStorage.Tools.StageGates).Apply()  -> number of banners
@@ -61,22 +60,8 @@ function G.Apply(): number
 		m:SetAttribute("Source", "ServerStorage.Tools.StageGates")
 		local x0 = (i - 1) * Config.StageLength - Config.StageLength / 2
 		if i == 1 then
-			-- Stage 1: the start wall IS the gate (pink like the reference); tall sign board above the opening
-			for _, c in stage:GetChildren() do
-				if c:IsA("BasePart") and (c.Name == "StartWall" or c.Name == "StartWallLintel") then
-					c.Color = PINK
-					-- raised studs on the lobby-facing side (same original stud tile as the UI)
-					for _, old in c:GetChildren() do if old:IsA("Texture") and old.Name == "Studs" then old:Destroy() end end
-					local tx = Instance.new("Texture"); tx.Name = "Studs"; tx.Face = Enum.NormalId.Left; tx.Texture = "rbxassetid://84866711570025"
-					tx.StudsPerTileU = 3; tx.StudsPerTileV = 3; tx.Transparency = 0.15; tx.Parent = c
-				end
-				if c:IsA("BasePart") and c.Name == "Part" and c:FindFirstChildOfClass("SurfaceGui") and math.abs(c.Position.X - (x0 - 2)) < 1 then c:Destroy() end
-			end
-			local board = part(m, Vector3.new(4.6, 14, 64), CFrame.new(x0 - 2, 37, 0), PINK2, {Name = "SignBoard"})
-			part(m, Vector3.new(5, 1.2, 66), CFrame.new(x0 - 2, 44.6, 0), Color3.fromRGB(40, 32, 46), {Name = "SignCap"})
-			-- posts tying the board to the wall
-			for _, z in {-26, 26} do part(m, Vector3.new(4.4, 2, 4), CFrame.new(x0 - 2, 31, z), PINK2) end
-			sign(board, i, st)
+			-- owner 2026-11-02: the pink Stage 1 restyle was reverted; Stage 1 keeps its original red start wall + arch sign
+			continue
 		else
 			-- later stages: a floating banner over the entry lane (non-colliding), coloured with the stage's gate colour
 			local col = st.Gate or PINK

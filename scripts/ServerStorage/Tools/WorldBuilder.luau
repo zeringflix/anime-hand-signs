@@ -496,12 +496,16 @@ function W.BuildStage(i: number, parent: Instance)
 	end
 	-- start wall for stage 1 / joins between stages are open
 	if i == 1 then
-		-- start wall with a 22-stud gate, flush with the lobby's east edge (LobbyBuilder ORIGIN); pink like +1 Anime Eyes.
-		-- The STAGE 1 / RECOMMENDED CHAKRA sign board is added by ServerStorage.Tools.StageGates.
+		-- start wall with a 22-stud gate, flush with the lobby's east edge (LobbyBuilder ORIGIN). Owner reverted the pink
+		-- restyle 2026-11-02: original red wall + "STAGE 1 · LEAF GROVE" arch sign.
 		for _, sz in {-1, 1} do
-			P(stage, Vector3.new(4, 30, 69), O * CFrame.new(-half - 2, 15, sz * 45.5), C(255, 62, 150), {TopSurface = STUDS, Name = "StartWall"})
+			P(stage, Vector3.new(4, 30, 69), O * CFrame.new(-half - 2, 15, sz * 45.5), C(200, 45, 40), {TopSurface = STUDS, Name = "StartWall"})
 		end
-		P(stage, Vector3.new(4, 6, 22), O * CFrame.new(-half - 2, 21, 0), C(255, 62, 150), {TopSurface = STUDS, Name = "StartWallLintel"})
+		P(stage, Vector3.new(4, 6, 22), O * CFrame.new(-half - 2, 21, 0), C(200, 45, 40), {TopSurface = STUDS, Name = "StartWallLintel"})
+		local arch = P(stage, Vector3.new(6, 6, 48), O * CFrame.new(-half - 2, 27, 0), C(35, 30, 38), {TopSurface = STUDS})
+		local sg = Instance.new("SurfaceGui"); sg.Face = Enum.NormalId.Right; sg.LightInfluence = 0; sg.PixelsPerStud = 14; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud; sg.Parent = arch
+		local t = Instance.new("TextLabel"); t.BackgroundTransparency = 1; t.Size = UDim2.fromScale(1, 1); t.Font = Enum.Font.FredokaOne; t.TextScaled = true
+		t.Text = "STAGE 1 · LEAF GROVE"; t.TextColor3 = Color3.new(1, 1, 1); local s = Instance.new("UIStroke"); s.Thickness = 3; s.Parent = t; t.Parent = sg
 	end
 	if i == Config.StageCount then
 		P(stage, Vector3.new(4, 60, 160), O * CFrame.new(half + 8, 30, 0), shade(st.Cliff, 0.8), {TopSurface = STUDS})
