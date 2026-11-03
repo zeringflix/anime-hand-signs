@@ -469,7 +469,7 @@ function updateGates()
 			barrier.CanCollide = not open
 			barrier.Color = open and GATE_OPEN or GATE_CLOSED
 			barrier.Material = Enum.Material.SmoothPlastic
-			barrier.Transparency = open and 0.78 or 0.4
+			barrier.Transparency = open and 1 or 0.65 -- closed: light veil you can see through; open: gone (no colour wash)
 			for _, g in barrier:GetChildren() do
 				if g:IsA("SurfaceGui") or g:IsA("BillboardGui") then g.Enabled = false end
 			end
@@ -601,7 +601,7 @@ end)
 
 ---------------------------------------------------------------- per-stage atmosphere (biome mood without darkening enemies)
 local MOOD = {
-	leaf = {C(200, 225, 255), C(120, 150, 200), C(255, 255, 255), 1.0}, wind = {C(255, 225, 240), C(230, 160, 200), C(255, 245, 250), 1.2},
+	leaf = {C(200, 225, 255), C(120, 150, 200), C(255, 255, 255), 1.0}, wind = {C(235, 232, 245), C(200, 180, 210), C(255, 252, 253), 0.9}, -- sakura: pink comes from trees/petals, not the air
 	earth = {C(255, 225, 180), C(220, 150, 90), C(255, 245, 230), 1.4}, water = {C(190, 230, 235), C(110, 170, 180), C(240, 255, 255), 1.8},
 	ice = {C(230, 245, 255), C(170, 210, 240), C(240, 250, 255), 1.6}, lightning = {C(180, 190, 230), C(90, 100, 160), C(235, 240, 255), 2.0},
 	fire = {C(255, 190, 150), C(200, 90, 50), C(255, 235, 220), 1.8}, spirit = {C(190, 230, 220), C(90, 140, 140), C(235, 255, 250), 2.0},

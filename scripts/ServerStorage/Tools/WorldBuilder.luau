@@ -407,8 +407,10 @@ local function buildGate(stage: Model, st, O: CFrame)
 	t.TextColor3 = Color3.new(1, 1, 1)
 	local ts = Instance.new("UIStroke"); ts.Thickness = 3; ts.Parent = t
 	t.Parent = sg
-	local barrier = P(g, Vector3.new(1, 43, 2 * halfW), O * CFrame.new(gx, 22.5, 0), col, {Name = "Barrier", Material = Enum.Material.ForceField, Transparency = 0.3, CastShadow = false})
-	barrier.Material = Enum.Material.SmoothPlastic
+	-- Visual Lock 2026-11-03 "pink veil" fix: the barrier used to be the NEXT stage's gate colour at 0.3 transparency, so
+	-- from inside Stage 1 the whole view of Stage 2 was washed hot pink. Build it neutral and see-through; the client
+	-- (Main.updateGates) keeps it light grey while closed and hides it completely once open.
+	local barrier = P(g, Vector3.new(1, 43, 2 * halfW), O * CFrame.new(gx, 22.5, 0), C(58, 58, 66), {Name = "Barrier", Material = Enum.Material.SmoothPlastic, Transparency = 0.65, CastShadow = false})
 	-- no text on the barrier (owner 2026-11-02): the client tints it dark grey (closed) / light grey (open)
 	local _ = gateText -- kept for reference; unused
 	g.Parent = stage
