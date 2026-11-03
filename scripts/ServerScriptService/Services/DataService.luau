@@ -21,8 +21,12 @@ local pendingSaves = 0
 local sessionToken = HttpService:GenerateGUID(false)
 
 local store: DataStore? = nil
-local okStore = pcall(function() store = DataStoreService:GetDataStore(STORE_NAME) end)
-local useMemoryOnly = not okStore
+-- Studio never acquires a production profile lease, even with API access enabled.
+local useMemoryOnly = RunService:IsStudio()
+if not useMemoryOnly then
+	local ok, err = pcall(function() store = DataStoreService:GetDataStore(STORE_NAME) end)
+	if not ok then warn("[DataService] Store unavailable:", err) end
+end
 
 function DataService.Default()
 	return {
@@ -69,7 +73,8 @@ end
 
 -- returns "ready", data | "locked" | "failed"
 local function loadAndLock(player: Player): (string, any)
-	if useMemoryOnly or not store then return "ready", DataService.Default() end
+	if useMemoryOnly then return "ready", DataService.Default() end
+	if not store then return "failed", nil end
 	local status = "failed"
 	local result = nil
 	local ok, err = retry(function()
@@ -77,7 +82,7 @@ local function loadAndLock(player: Player): (string, any)
 			local data = old or DataService.Default()
 			local lock = data._Lock
 			local now = os.time()
-			if lock and lock.Token ~= sessionToken and now - (lock.Time or 0) < LEASE and not RunService:IsStudio() then
+			if lock and lock.Token ~= sessionToken and now - (lock.Time or 0) < LEASE then
 				status = "locked"
 				return nil -- cancel write
 			end
@@ -157,9 +162,9 @@ local function onJoin(player: Player)
 		if status == "ready" then DataService.Profiles[player] = {Data = data, CanSave = true}; save(player, true); DataService.Profiles[player] = nil end
 		return
 	end
-	local noPersist = false
+	local noPersist = useMemoryOnly
 	if status == "failed" and RunService:IsStudio() then
-		warn("[DataService] Studio: DataStore unavailable (enable Studio API access). Using a temporary profile that will NOT save.")
+		warn("[DataService] Studio: using a temporary profile that will NOT save.")
 		status, data, noPersist = "ready", DataService.Default(), true
 	end
 	if status ~= "ready" then
@@ -168,6 +173,8 @@ local function onJoin(player: Player)
 	end
 	DataService.Profiles[player] = {Data = data, CanSave = true, NoPersist = noPersist}
 	player:SetAttribute("DataLoaded", true)
+	player:SetAttribute("TemporaryProfile", noPersist)
+	if noPersist then print("[DataService] Studio profile isolated: production data is never read or written.") end
 	for _, cb in loadedCallbacks do task.spawn(cb, player, data) end
 end
 
@@ -198,10 +205,7 @@ function DataService.Start()
 	end)
 	game:BindToClose(function()
 		if RunService:IsStudio() then
-			-- Studio: save but don't hold the editor for long
-			for p in DataService.Profiles do task.spawn(save, p, true) end
-			task.wait(1)
-			return
+			return -- Studio profiles are deliberately ephemeral.
 		end
 		for p in DataService.Profiles do task.spawn(save, p, true) end
 		local deadline = os.clock() + 25

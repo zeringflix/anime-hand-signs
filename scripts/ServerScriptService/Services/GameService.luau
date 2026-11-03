@@ -371,7 +371,7 @@ end
 
 GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player, stage: any)
 	if not GameService.RateOk(player, "tp", 1) then return end
-	if typeof(stage) ~= "number" then return end
+	if typeof(stage) ~= "number" or stage ~= stage or math.abs(stage) == math.huge then return end
 	local data = DataService.Get(player)
 	if not data then return end
 	stage = math.floor(stage)
@@ -436,7 +436,10 @@ task.spawn(function()
 				end
 				local okZ, zm = pcall(GameService.StationMultiplier, player, data, root.Position)
 				zm = (okZ and inLobby) and zm or 1
-				if player:GetAttribute("ZoneMult") ~= zm then player:SetAttribute("ZoneMult", zm) end
+				if player:GetAttribute("ZoneMult") ~= zm then
+					player:SetAttribute("ZoneMult", zm)
+					GameService.Refresh(player) -- keep the displayed multiplier consistent with training gains
+				end
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)
 				if player:GetAttribute("InStage") ~= stageIdx then
 					player:SetAttribute("InStage", stageIdx)
