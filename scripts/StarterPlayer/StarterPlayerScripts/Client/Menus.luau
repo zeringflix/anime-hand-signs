@@ -94,11 +94,11 @@ function M.Init(c)
 	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(900, 640), Parent = root})
 	U.corner(6).Parent = root
 	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = root
-	local bodyRim = U.new("Frame", {Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
+	local bodyRim = U.new("Frame", {Name = "BodyRim", Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
 	U.corner(4).Parent = bodyRim
 	U.new("UIStroke", {Thickness = 2, Color = Color3.new(1, 1, 1), Transparency = 0.2, Parent = bodyRim})
 	-- Studs Pack header: two-tone studded bar with shine, the panel's icon popping out of the top-left corner
-	headerFrame = U.new("Frame", {Name = "Frame", Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = C(255, 255, 255), ZIndex = 5, Parent = root})
+	headerFrame = U.new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = C(255, 255, 255), ZIndex = 5, Parent = root})
 	U.corner(6).Parent = headerFrame
 	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = headerFrame
 	U.gloss(headerFrame, U.TONES.Red[1], 6, U.TONES.Red[2])
@@ -107,8 +107,10 @@ function M.Init(c)
 	titleLabel = label(headerFrame, "", UDim2.fromOffset(100, 8), UDim2.new(1, -190, 1, -16), nil, Enum.TextXAlignment.Left, 4)
 	titleLabel.FontFace = U.FontHeavy
 	titleLabel.ZIndex = 7
-	local close = U.button({Text = "X", Color = U.TONES.Close[1], Color2 = U.TONES.Close[2], Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -10, 0, 8), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 3.5, StudTile = 18, Parent = headerFrame})
+	local close = U.button({Name = "Close", Text = "X", Color = U.TONES.Close[1], Color2 = U.TONES.Close[2], Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -10, 0, 8), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 3.5, StudTile = 18, Parent = headerFrame})
 	close.ZIndex = 8
+	close:SetAttribute("HoverWired", nil)
+	U.hover(close, {Scale = 1.12, Tilt = 12})
 	close.MouseButton1Click:Connect(function() M.Close() end)
 	body = U.new("ScrollingFrame", {Position = UDim2.fromOffset(14, 88), Size = UDim2.new(1, -28, 1, -100), BackgroundTransparency = 1, BorderSizePixel = 0,
 		ScrollBarThickness = 10, ScrollBarImageColor3 = C(255, 255, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 5, Parent = root})
@@ -128,31 +130,70 @@ end
 
 function M.IsOpen() return root.Visible end
 
+local PANEL_POS = UDim2.fromScale(0.5, 0.52)
+local motionToken = 0
+local sideTabs: Frame? = nil
+local function clearSideTabs() if sideTabs then sideTabs:Destroy(); sideTabs = nil end end
 function M.Open(id: string)
 	if current == id and root.Visible then M.Close(); return end
+	local fresh = not root.Visible
 	current = id
+	motionToken += 1
+	clearSideTabs()
 	if detail then detail:Destroy(); detail = nil end
 	local tone = U.TONES[TAB_TONE[id] or "Red"]
 	titleLabel.Text = string.upper(TAB_TITLE[id] or id)
 	U.fill(headerFrame, tone[1], tone[2])
 	headerIcon.Image = (id == "Signs" and AssetsMod.SignIcons and AssetsMod.SignIcons[attr("Equipped") or "Tiger"]) or AssetsMod.Icon(TAB_ICON[id])
 	if M.Fit then M.Fit() end
-	root.Visible = true
-	U.pop(root, 0.8)
+	local sc = U.motionScale(root)
+	root.Position = PANEL_POS
+	root.Rotation = 0
+	if fresh then -- HUD slides away, world blurs, the panel lands from oversize
+		if ctx.SetHud then ctx.SetHud(false) end
+		U.menuWorld(true)
+		sc.Scale = 1.32
+		root.Visible = true
+		U.tween(sc, 0.3, {Scale = 1}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	else -- switching panels: quick squash-pop
+		sc.Scale = 0.9
+		U.tween(sc, 0.25, {Scale = 1}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	end
+	U.sweep(headerFrame)
 	M.Refresh()
+	U.intro(body, fresh and 0.16 or 0.05)
 end
 
 function M.Close()
-	if root.Visible then Sfx.Play("Close") end
-	root.Visible = false
+	clearSideTabs()
+	if not root.Visible then current = nil; return end
+	Sfx.Play("Close")
 	current = nil
+	motionToken += 1
+	local my = motionToken
+	if detail then detail:Destroy(); detail = nil end
+	local sc = U.motionScale(root)
+	U.tween(sc, 0.18, {Scale = 0.72}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	U.tween(root, 0.18, {Position = UDim2.fromScale(0.5, 0.8), Rotation = 4}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	if ctx.SetHud then ctx.SetHud(true) end
+	U.menuWorld(false)
+	task.delay(0.19, function()
+		if my ~= motionToken then return end -- reopened meanwhile
+		root.Visible = false
+		root.Position = PANEL_POS
+		root.Rotation = 0
+		sc.Scale = 1
+	end)
 end
 
 -- live countdowns (Daily / Gifts) without rebuilding the panel every second
 local tickers: {() -> ()} = {}
 task.spawn(function()
+	local n = 0
 	while true do
 		task.wait(1)
+		n += 1
+		if root and root.Visible and n % 4 == 0 and headerFrame then U.sweep(headerFrame) end
 		if root and root.Visible then
 			for i = #tickers, 1, -1 do
 				local ok = pcall(tickers[i])
@@ -685,11 +726,35 @@ local function section(parent: Instance, order: number, text: string)
 	local h = U.title({Text = text, Size = UDim2.new(1, -8, 0, 36), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, Parent = parent})
 	return h
 end
+-- reference: small category buttons hang off the panel's left edge and jump the list to a section
+local tabMarks: {GuiObject} = {} -- rebuilt with the list on every Refresh; the side tabs read the current ones
+local function addSideTabs(marks: {{any}})
+	clearSideTabs()
+	sideTabs = U.new("Frame", {Name = "SideTabs", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(0, -8, 0, 92),
+		Size = UDim2.fromOffset(70, #marks * 82), ZIndex = 6, Parent = root})
+	U.new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = sideTabs})
+	for i, m in marks do
+		local b = U.new("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(70, 74), LayoutOrder = i, ZIndex = 6, Parent = sideTabs})
+		U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon(m[2]), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(9, 0), ZIndex = 6, Parent = b})
+		U.text({Text = m[3], Size = UDim2.fromOffset(70, 20), Position = UDim2.fromOffset(0, 52), Stroke = 2.5, ZIndex = 7, Parent = b})
+		U.hover(b, {Scale = 1.15, Tilt = 6})
+		b.MouseButton1Click:Connect(function()
+			Sfx.Play("Click")
+			local mark = tabMarks[i]
+			if not (mark and mark.Parent) then return end
+			-- CanvasPosition is in on-screen pixels, the same space as AbsolutePosition
+			local y = body.CanvasPosition.Y + (mark.AbsolutePosition.Y - body.AbsolutePosition.Y)
+			U.tween(body, 0.35, {CanvasPosition = Vector2.new(0, math.max(0, y - 6))}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+			U.pop(mark, 1.25)
+		end)
+	end
+	U.intro(sideTabs, 0.2)
+end
 builders.Shop = function(parent)
 	list(parent, 10)
 	local p = prof() or {}
 	local passes = p.Passes or {}
-	section(parent, 1, "SPECIAL PETS")
+	local m1 = section(parent, 1, "SPECIAL PETS")
 	local pets = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 2, Parent = parent})
 	grid(pets, UDim2.fromOffset(190, 236), 10)
 	for i, rp in SC.RobuxPets do
@@ -697,7 +762,7 @@ builders.Shop = function(parent)
 		shopCard(pets, i, rp.Special and C(255, 140, 40) or C(120, 80, 220), def.Name, "x" .. fmt(1 + def.Boost) .. " Hand Signs", "R$ " .. rp.Robux, true,
 			function() act("BuyProduct", rp.Product) end, rp.Pet)
 	end
-	section(parent, 3, "ROBUX EGGS")
+	local m2 = section(parent, 3, "ROBUX EGGS")
 	local eggs = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 4, Parent = parent})
 	grid(eggs, UDim2.fromOffset(190, 236), 10)
 	local n = 0
@@ -709,7 +774,7 @@ builders.Shop = function(parent)
 			shopCard(eggs, n, U.shade(egg.Color, 0.8), egg.Name, "Up to " .. best.Name, "R$ " .. egg.Robux, true, function() act("Hatch", eggId) end, nil, "Egg")
 		end
 	end
-	section(parent, 5, "GAME PASSES")
+	local m3 = section(parent, 5, "GAME PASSES")
 	local gps = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 6, Parent = parent})
 	grid(gps, UDim2.fromOffset(190, 236), 10)
 	local order = 0
@@ -721,7 +786,9 @@ builders.Shop = function(parent)
 				function() if not owned then act("BuyPass", key) end end, nil, key == "DoubleTrophies" and "TrophyBoost" or (key == "AutoClicker" and "Clock" or "Star"))
 		end
 	end
-	section(parent, 7, "BOOSTS & PACKS")
+	local m4 = section(parent, 7, "BOOSTS & PACKS")
+	tabMarks = {m1, m2, m3, m4}
+	if not sideTabs then addSideTabs({{m1, "Pets", "PETS"}, {m2, "Egg", "EGGS"}, {m3, "Crown", "PASSES"}, {m4, "Boost", "BOOSTS"}}) end
 	local dps = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 8, Parent = parent})
 	grid(dps, UDim2.fromOffset(190, 236), 10)
 	order = 0

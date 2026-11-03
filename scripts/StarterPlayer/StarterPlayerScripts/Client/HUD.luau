@@ -217,9 +217,35 @@ function H.Build(gui: ScreenGui)
 		boss.Position = narrow and UDim2.new(0.5, -40, 0, 100) or UDim2.new(0.5, -40, 0, 10)
 		banner.Position = narrow and UDim2.new(0.5, -40, 0, 182) or UDim2.new(0.5, -40, 0, 92)
 	end
+	---------------------------------------------------------------- slide the HUD off-screen while a menu is open (reference clips)
+	local slides = {{dailyBar, -1, 0}, {left, -1, 0}, {cur, -1, 0}, {tr, 0, -1}, {br, 1, 0}, {bc, 0, 1}, {E.Promo, 1, 0}}
+	local shown: {[GuiObject]: UDim2} = {}
+	local hidden = false
+	local TS = game:GetService("TweenService")
+	local function offFor(sl): UDim2 return UDim2.fromOffset(sl[2] * 760, sl[3] * 560) end
+	function E.SetHidden(h: boolean)
+		if h == hidden then return end
+		hidden = h
+		for _, sl in slides do
+			local o = sl[1] :: GuiObject
+			if h then
+				shown[o] = o.Position
+				TS:Create(o, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = o.Position + offFor(sl)}):Play()
+			elseif shown[o] then
+				TS:Create(o, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = shown[o]}):Play()
+				shown[o] = nil
+			end
+		end
+	end
+	local function relayout()
+		layout()
+		if hidden then -- keep hidden pieces off-screen, remember where they belong
+			for _, sl in slides do local o = sl[1] :: GuiObject; shown[o] = o.Position; o.Position = o.Position + offFor(sl) end
+		end
+	end
 	layout()
-	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(layout) end
-	E.Layout = layout
+	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(relayout) end
+	E.Layout = relayout
 	return E
 end
 

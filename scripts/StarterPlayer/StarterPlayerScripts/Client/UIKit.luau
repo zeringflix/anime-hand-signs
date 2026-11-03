@@ -176,6 +176,7 @@ function U.button(props: {[string]: any}): (TextButton, TextLabel)
 	local label = U.text({Name = "Label", Text = props.Text or "", Size = UDim2.new(1, -10, 0.74, -4), Position = UDim2.fromOffset(5, 3),
 		TextSize = props.TextSize, TextScaled = props.TextSize == nil, Stroke = props.TextStroke or 3, Parent = b})
 	local base = b.Size
+	if props.Hover ~= false then U.hover(b, {Scale = props.HoverScale or 1.07, Tilt = props.HoverTilt or 0}) end
 	b.MouseButton1Down:Connect(function()
 		local okS, Sfx = pcall(require, script.Parent:FindFirstChild("Sfx"))
 		if okS and Sfx then Sfx.Play("Click") end
@@ -201,6 +202,125 @@ function U.iconLeft(holder: GuiObject, label: TextLabel, image: string, frac: nu
 	label.Position = UDim2.new(0.04 + f * 0.85, 0, label.Position.Y.Scale, label.Position.Y.Offset)
 	label.Size = UDim2.new(0.92 - f * 0.85, 0, label.Size.Y.Scale, label.Size.Y.Offset)
 	return ic
+end
+
+---------------------------------------------------------------- MOTION (owner's reference clips, 2026-11-02)
+-- Hover: the element grows ~7-15 %, optionally tilts a few degrees, and lifts above its neighbours.
+-- Open: HUD slides off-screen, the world blurs + zooms in, the panel lands from oversize, a shine sweeps the
+-- header, then the content pops in card by card (oversize -> settle, dark -> bright). Close: the panel drops away.
+local Lighting = game:GetService("Lighting")
+local function sfx(name: string)
+	local ok, Sfx = pcall(require, script.Parent:FindFirstChild("Sfx"))
+	if ok and Sfx then Sfx.Play(name) end
+end
+function U.motionScale(obj: GuiObject): UIScale
+	local sc = obj:FindFirstChild("MotionScale") :: UIScale?
+	if not sc then
+		for _, x in obj:GetChildren() do if x:IsA("UIScale") then return x end end
+		sc = U.new("UIScale", {Name = "MotionScale", Parent = obj})
+	end
+	return sc :: UIScale
+end
+local HOVER_IN = TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local HOVER_OUT = TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+function U.hover(obj: GuiObject, opts: {[string]: any}?)
+	if obj:GetAttribute("HoverWired") then return end
+	obj:SetAttribute("HoverWired", true)
+	local amt = opts and opts.Scale or 1.08
+	local tilt = opts and opts.Tilt or 0
+	local sc = U.motionScale(obj)
+	local baseZ: number? = nil
+	obj.MouseEnter:Connect(function()
+		if obj:GetAttribute("Intro") then return end
+		baseZ = baseZ or obj.ZIndex
+		obj.ZIndex = (baseZ :: number) + 2
+		TweenService:Create(sc, HOVER_IN, {Scale = amt}):Play()
+		if tilt ~= 0 then TweenService:Create(obj, HOVER_IN, {Rotation = tilt * (obj.AbsolutePosition.X % 2 < 1 and -1 or 1)}):Play() end
+		sfx("Hover")
+	end)
+	obj.MouseLeave:Connect(function()
+		if baseZ then obj.ZIndex = baseZ end
+		TweenService:Create(sc, HOVER_OUT, {Scale = 1}):Play()
+		if tilt ~= 0 then TweenService:Create(obj, HOVER_OUT, {Rotation = 0}):Play() end
+	end)
+end
+
+-- content intro: every card in `container` (cards inside grid / list holder frames too) pops in, top-left first
+function U.intro(container: Instance, delay0: number?)
+	local items: {GuiObject} = {}
+	local function collect(parent: Instance, depth: number)
+		for _, c in parent:GetChildren() do
+			if c:IsA("GuiObject") and c.Visible then
+				local holder = c.BackgroundTransparency >= 0.99 and (c:FindFirstChildOfClass("UIGridLayout") or c:FindFirstChildOfClass("UIListLayout"))
+				if holder and depth < 2 then collect(c, depth + 1) else table.insert(items, c) end
+			end
+		end
+	end
+	collect(container, 0)
+	table.sort(items, function(a, b)
+		if math.abs(a.AbsolutePosition.Y - b.AbsolutePosition.Y) > 6 then return a.AbsolutePosition.Y < b.AbsolutePosition.Y end
+		return a.AbsolutePosition.X < b.AbsolutePosition.X
+	end)
+	for i, it in items do
+		local sc = U.motionScale(it)
+		local isCard = it.BackgroundTransparency < 0.99
+		local dark: Frame? = nil
+		if isCard then
+			dark = U.new("Frame", {Name = "IntroDark", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, ZIndex = 50, Parent = it})
+			U.corner(6).Parent = dark
+			if it.AbsoluteSize.X < 320 then U.hover(it, {Scale = 1.07, Tilt = 2.5}) else U.hover(it, {Scale = 1.025}) end
+		end
+		it:SetAttribute("Intro", true)
+		sc.Scale = 0.55
+		local d = (delay0 or 0) + math.min(i - 1, 18) * 0.035
+		task.delay(d, function()
+			if not it.Parent then return end
+			TweenService:Create(sc, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			if dark then
+				local tw = TweenService:Create(dark, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1})
+				tw.Completed:Connect(function() dark:Destroy() end)
+				tw:Play()
+			end
+			task.delay(0.3, function() if it.Parent then it:SetAttribute("Intro", nil) end end)
+		end)
+	end
+	return #items
+end
+
+-- world behind an open menu: blur + slight dim + a small camera zoom-in
+local blurFx: BlurEffect? = nil
+local dimFx: ColorCorrectionEffect? = nil
+local baseFov: number? = nil
+function U.menuWorld(on: boolean)
+	blurFx = blurFx or U.new("BlurEffect", {Name = "MenuBlur", Size = 0, Parent = Lighting})
+	dimFx = dimFx or U.new("ColorCorrectionEffect", {Name = "MenuDim", Parent = Lighting})
+	local cam = workspace.CurrentCamera
+	local ti = TweenInfo.new(on and 0.3 or 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(blurFx :: BlurEffect, ti, {Size = on and 14 or 0}):Play()
+	TweenService:Create(dimFx :: ColorCorrectionEffect, ti, {Brightness = on and -0.06 or 0, Saturation = on and -0.12 or 0}):Play()
+	if cam then
+		if on then
+			baseFov = baseFov or cam.FieldOfView
+			TweenService:Create(cam, ti, {FieldOfView = (baseFov :: number) - 8}):Play()
+		elseif baseFov then
+			TweenService:Create(cam, ti, {FieldOfView = baseFov}):Play()
+			baseFov = nil
+		end
+	end
+end
+
+-- a light streak that sweeps across a header bar (once per call)
+function U.sweep(bar: GuiObject)
+	local f = bar:FindFirstChild("Sweep") :: Frame?
+	if not f then
+		f = U.new("Frame", {Name = "Sweep", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = bar.ZIndex + 1, Parent = bar})
+		U.corner(6).Parent = f
+		U.new("UIGradient", {Name = "G", Rotation = 20, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 1),
+			NumberSequenceKeypoint.new(0.47, 0.45), NumberSequenceKeypoint.new(0.5, 0.25), NumberSequenceKeypoint.new(0.53, 0.45), NumberSequenceKeypoint.new(0.6, 1), NumberSequenceKeypoint.new(1, 1)}), Parent = f})
+	end
+	local g = (f :: Frame):FindFirstChild("G") :: UIGradient
+	g.Offset = Vector2.new(-1, 0)
+	TweenService:Create(g, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)}):Play()
 end
 
 function U.pop(obj: GuiObject, from: number?)

@@ -10,6 +10,7 @@ M.Lib = {
 	Click = {"rbxasset://sounds/electronicpingshort.wav", 0.22, 1.9, 0.05},
 	Open = {"rbxassetid://9112872239", 0.45, 1.5, 0.05},            -- PSE small bubble pop
 	Close = {"rbxassetid://9112872239", 0.35, 1.15, 0.05},
+	Hover = {"rbxasset://sounds/electronicpingshort.wav", 0.07, 2.6, 0.06},
 	Train = {"rbxasset://sounds/clickfast.wav", 0.12, 1.1, 0.2},
 	Swing = {"rbxassetid://9120728815", 0.35, 1.15, 0.12},           -- PSE whoosh heavy punches
 	Hit = {"rbxassetid://9117969717", 0.45, 1.05, 0.12},             -- PSE punch kit beefy hit

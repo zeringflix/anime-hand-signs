@@ -51,6 +51,7 @@ local E = HUDView.Build(gui)
 for _, b in {E.Attack, E.AbilityE, E.AbilityR} do b.Badge.Visible = not isTouch end
 
 local ctx: any = {Gui = gui, Action = Remotes.Action, EquipSign = Remotes.EquipSign, TeleportStage = Remotes.TeleportStage, Profile = nil}
+ctx.SetHud = function(visible: boolean) E.SetHidden(not visible) end
 
 ---------------------------------------------------------------- toasts + celebrations
 local toastHolder = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 146), Size = UDim2.fromOffset(600, 200), BackgroundTransparency = 1, Parent = gui})
