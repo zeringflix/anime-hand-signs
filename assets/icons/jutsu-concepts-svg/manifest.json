@@ -1,0 +1,262 @@
+{
+  "source": "scripts/ReplicatedStorage/Shared/Config.luau",
+  "created": "2026-11-03",
+  "type": "SVG vector compositing draft; render to PNG and QA",
+  "total": 28,
+  "hand_art_count": 24,
+  "effect_only_count": 4,
+  "assets": [
+    {
+      "id": "Fireball",
+      "sign": "Tiger",
+      "slot": "E",
+      "name": "Fire Style: Fireball Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/Fireball.svg",
+      "hand_png": "assets/icons/hand-signs-art/Tiger.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "PhoenixFlower",
+      "sign": "Tiger",
+      "slot": "R",
+      "name": "Fire Style: Phoenix Flower Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/PhoenixFlower.svg",
+      "hand_png": "assets/icons/hand-signs-art/Tiger.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "DragonFlame",
+      "sign": "Ram",
+      "slot": "E",
+      "name": "Fire Style: Dragon Flame Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/DragonFlame.svg",
+      "hand_png": "assets/icons/hand-signs-art/Ram.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "ShadowClone",
+      "sign": "Ram",
+      "slot": "R",
+      "name": "Shadow Clone Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/ShadowClone.svg",
+      "hand_png": "assets/icons/hand-signs-art/Ram.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "SnakeHands",
+      "sign": "Snake",
+      "slot": "E",
+      "name": "Hidden Shadow Snake Hands",
+      "path": "assets/icons/jutsu-concepts-svg/SnakeHands.svg",
+      "hand_png": "assets/icons/hand-signs-art/Snake.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "StrikingSnakes",
+      "sign": "Snake",
+      "slot": "R",
+      "name": "Striking Shadow Snakes",
+      "path": "assets/icons/jutsu-concepts-svg/StrikingSnakes.svg",
+      "hand_png": "assets/icons/hand-signs-art/Snake.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "ShadowImitation",
+      "sign": "Rat",
+      "slot": "E",
+      "name": "Shadow Imitation Technique",
+      "path": "assets/icons/jutsu-concepts-svg/ShadowImitation.svg",
+      "hand_png": "assets/icons/hand-signs-art/Rat.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "ShadowStrangle",
+      "sign": "Rat",
+      "slot": "R",
+      "name": "Shadow Strangle Technique",
+      "path": "assets/icons/jutsu-concepts-svg/ShadowStrangle.svg",
+      "hand_png": "assets/icons/hand-signs-art/Rat.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Chidori",
+      "sign": "Ox",
+      "slot": "E",
+      "name": "Chidori",
+      "path": "assets/icons/jutsu-concepts-svg/Chidori.svg",
+      "hand_png": "assets/icons/hand-signs-art/Ox.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "ChidoriStream",
+      "sign": "Ox",
+      "slot": "R",
+      "name": "Chidori Stream",
+      "path": "assets/icons/jutsu-concepts-svg/ChidoriStream.svg",
+      "hand_png": "assets/icons/hand-signs-art/Ox.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Substitution",
+      "sign": "Hare",
+      "slot": "E",
+      "name": "Substitution Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/Substitution.svg",
+      "hand_png": "assets/icons/hand-signs-art/Hare.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "BodyFlicker",
+      "sign": "Hare",
+      "slot": "R",
+      "name": "Body Flicker Technique",
+      "path": "assets/icons/jutsu-concepts-svg/BodyFlicker.svg",
+      "hand_png": "assets/icons/hand-signs-art/Hare.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Rasengan",
+      "sign": "Horse",
+      "slot": "E",
+      "name": "Rasengan",
+      "path": "assets/icons/jutsu-concepts-svg/Rasengan.svg",
+      "hand_png": "assets/icons/hand-signs-art/Horse.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "MajesticFlame",
+      "sign": "Horse",
+      "slot": "R",
+      "name": "Fire Style: Majestic Destroyer Flame",
+      "path": "assets/icons/jutsu-concepts-svg/MajesticFlame.svg",
+      "hand_png": "assets/icons/hand-signs-art/Horse.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Summoning",
+      "sign": "Boar",
+      "slot": "E",
+      "name": "Summoning Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/Summoning.svg",
+      "hand_png": "assets/icons/hand-signs-art/Boar.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "EarthWall",
+      "sign": "Boar",
+      "slot": "R",
+      "name": "Earth Style: Earth Wall",
+      "path": "assets/icons/jutsu-concepts-svg/EarthWall.svg",
+      "hand_png": "assets/icons/hand-signs-art/Boar.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "WaterWall",
+      "sign": "Dog",
+      "slot": "E",
+      "name": "Water Style: Water Wall",
+      "path": "assets/icons/jutsu-concepts-svg/WaterWall.svg",
+      "hand_png": "assets/icons/hand-signs-art/Dog.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "WaterDragon",
+      "sign": "Dog",
+      "slot": "R",
+      "name": "Water Style: Water Dragon Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/WaterDragon.svg",
+      "hand_png": "assets/icons/hand-signs-art/Dog.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "GreatBreakthrough",
+      "sign": "Bird",
+      "slot": "E",
+      "name": "Wind Style: Great Breakthrough",
+      "path": "assets/icons/jutsu-concepts-svg/GreatBreakthrough.svg",
+      "hand_png": "assets/icons/hand-signs-art/Bird.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Rasenshuriken",
+      "sign": "Bird",
+      "slot": "R",
+      "name": "Wind Style: Rasenshuriken",
+      "path": "assets/icons/jutsu-concepts-svg/Rasenshuriken.svg",
+      "hand_png": "assets/icons/hand-signs-art/Bird.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "MultiShadowClone",
+      "sign": "Monkey",
+      "slot": "E",
+      "name": "Multi Shadow Clone Jutsu",
+      "path": "assets/icons/jutsu-concepts-svg/MultiShadowClone.svg",
+      "hand_png": "assets/icons/hand-signs-art/Monkey.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "ChidoriSenbon",
+      "sign": "Monkey",
+      "slot": "R",
+      "name": "Chidori Senbon",
+      "path": "assets/icons/jutsu-concepts-svg/ChidoriSenbon.svg",
+      "hand_png": "assets/icons/hand-signs-art/Monkey.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "GiantRasengan",
+      "sign": "Dragon",
+      "slot": "E",
+      "name": "Giant Rasengan",
+      "path": "assets/icons/jutsu-concepts-svg/GiantRasengan.svg",
+      "hand_png": "assets/icons/hand-signs-art/Dragon.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Kirin",
+      "sign": "Dragon",
+      "slot": "R",
+      "name": "Kirin",
+      "path": "assets/icons/jutsu-concepts-svg/Kirin.svg",
+      "hand_png": "assets/icons/hand-signs-art/Dragon.png",
+      "status": "vector draft embedding approved sign art"
+    },
+    {
+      "id": "Amaterasu",
+      "sign": "Advanced",
+      "slot": "E",
+      "name": "Amaterasu",
+      "path": "assets/icons/jutsu-concepts-svg/Amaterasu.svg",
+      "hand_png": null,
+      "status": "effect-only awaiting approved special-tier hand pose"
+    },
+    {
+      "id": "Susanoo",
+      "sign": "Advanced",
+      "slot": "R",
+      "name": "Susanoo",
+      "path": "assets/icons/jutsu-concepts-svg/Susanoo.svg",
+      "hand_png": null,
+      "status": "effect-only awaiting approved special-tier hand pose"
+    },
+    {
+      "id": "PlanetaryDevastation",
+      "sign": "Forbidden",
+      "slot": "E",
+      "name": "Planetary Devastation",
+      "path": "assets/icons/jutsu-concepts-svg/PlanetaryDevastation.svg",
+      "hand_png": null,
+      "status": "effect-only awaiting approved special-tier hand pose"
+    },
+    {
+      "id": "TailedBeastBomb",
+      "sign": "Forbidden",
+      "slot": "R",
+      "name": "Tailed Beast Bomb",
+      "path": "assets/icons/jutsu-concepts-svg/TailedBeastBomb.svg",
+      "hand_png": null,
+      "status": "effect-only awaiting approved special-tier hand pose"
+    }
+  ]
+}
