@@ -22,8 +22,9 @@ local function pet(id, name, rarity, boost, shape, c1, c2)
 end
 
 -- Eggs: Stage = stage that must be unlocked; Cost in Trophies; Odds in percent (sum 100)
-export type Egg = {Id: string, Name: string, Stage: number, Cost: number, Color: Color3, Odds: {{Pet: string, Chance: number}}}
-S.EggOrder = {"Ninja", "Sakura", "Desert", "Forest", "Lightning", "Summoning", "Celestial", "Divine"}
+export type Egg = {Id: string, Name: string, Stage: number, Cost: number, Color: Color3, Odds: {{Pet: string, Chance: number}}, Robux: number?, Product: string?}
+-- LEGACY eggs: no longer sold (owner 2026-11-02 picked 4 eggs). Their pets stay defined so existing saves keep them.
+local LEGACY_EGGS = {"Ninja", "Sakura", "Desert", "Forest"}
 local eggStages = {Ninja = 1, Sakura = 2, Desert = 3, Forest = 11, Lightning = 21, Summoning = 26, Celestial = 36, Divine = 46}
 local eggColors = {Ninja = C(255, 150, 60), Sakura = C(255, 160, 210), Desert = C(235, 200, 120), Forest = C(70, 170, 90),
 	Lightning = C(120, 200, 255), Summoning = C(255, 170, 60), Celestial = C(180, 200, 255), Divine = C(255, 220, 120)}
@@ -77,13 +78,59 @@ local eggPets = {
 		{pet("SixPathsBeast", "Six Paths Beast", "Secret", 3000000, "beast", C(30, 20, 40), C(220, 160, 255)), 2},
 	},
 }
+-- THE 4 LOBBY EGGS (owner 2026-11-02): models Celestial / Summoning / Lightning / Divine, shrunk ~20%.
+-- Two cost Trophies (no stage gate); the two cool ones cost Robux (developer products, Id 0 = "not available yet").
+-- New ninja-inspired ORIGINAL pets (no licensed characters). Boost is additive (1 + sum of equipped boosts).
+local newEggPets = {
+	Celestial = { -- Spirit Egg (kitsune-mask egg): starter pets
+		{pet("LeafPup", "Leaf Ninja Pup", "Common", 0.12, "dog", C(240, 170, 90), C(40, 60, 120)), 50},
+		{pet("KunaiCat", "Kunai Cat", "Uncommon", 0.25, "cat", C(60, 60, 75), C(230, 60, 60)), 30},
+		{pet("MaskedKitsune", "Masked Kitsune", "Rare", 0.55, "fox", C(250, 250, 255), C(230, 50, 60)), 15},
+		{pet("ScrollFox", "Scroll Fox", "Epic", 1.2, "fox", C(255, 150, 50), C(255, 230, 160)), 5},
+	},
+	Summoning = { -- Flame Egg (chained lava egg)
+		{pet("EmberToad", "Ember Toad", "Uncommon", 1.5, "toad", C(255, 120, 50), C(120, 40, 20)), 50},
+		{pet("ShurikenSerpent", "Shuriken Serpent", "Rare", 3, "serpent", C(80, 80, 100), C(255, 200, 60)), 30},
+		{pet("FlameWolf", "Flame Wolf", "Epic", 6, "wolf", C(255, 90, 30), C(255, 220, 80)), 15},
+		{pet("PhoenixHawk", "Phoenix Hawk", "Legendary", 15, "dragon", C(255, 110, 40), C(255, 240, 120)), 5},
+	},
+	Lightning = { -- Shadow Egg (Robux): purple dragon-scale egg
+		{pet("ShadowKitsune", "Shadow Kitsune", "Epic", 10, "fox", C(60, 30, 90), C(200, 90, 255)), 50},
+		{pet("StormHound", "Storm Hound", "Legendary", 22, "wolf", C(90, 130, 255), C(230, 240, 255)), 30},
+		{pet("VoidSerpent", "Void Serpent", "Mythic", 45, "serpent", C(40, 20, 60), C(190, 90, 255)), 15},
+		{pet("ThunderDragon", "Thunder Dragon", "Mythic", 100, "dragon", C(80, 90, 230), C(255, 240, 120)), 5},
+	},
+	Divine = { -- Mythic Egg (Robux): cracked crystal egg
+		{pet("HaloFox", "Halo Fox", "Legendary", 30, "fox", C(255, 250, 235), C(255, 210, 90)), 45},
+		{pet("SageToadKing", "Sage Toad King", "Mythic", 65, "toad", C(255, 170, 60), C(255, 240, 200)), 30},
+		{pet("CelestialKirin", "Celestial Kirin", "Mythic", 140, "beast", C(200, 220, 255), C(255, 230, 140)), 20},
+		{pet("SixTailSpirit", "Six-Tail Spirit", "Secret", 300, "fox", C(30, 20, 50), C(255, 120, 220)), 5},
+	},
+}
+S.EggOrder = {"Celestial", "Summoning", "Lightning", "Divine"}
+local EGG_INFO = {
+	Celestial = {Name = "Spirit Egg", Cost = 50, Color = C(90, 170, 255)},
+	Summoning = {Name = "Flame Egg", Cost = 2500, Color = C(255, 120, 40)},
+	Lightning = {Name = "Shadow Egg", Robux = 79, Product = "EggShadow", Color = C(170, 80, 255)},
+	Divine = {Name = "Mythic Egg", Robux = 149, Product = "EggMythic", Color = C(255, 220, 120)},
+}
 S.Eggs = {} :: {[string]: Egg}
 for _, id in S.EggOrder do
-	local stage = eggStages[id]
+	local info = EGG_INFO[id]
 	local odds = {}
-	for _, row in eggPets[id] do table.insert(odds, {Pet = row[1], Chance = row[2]}) end
-	S.Eggs[id] = {Id = id, Name = id .. " Egg", Stage = stage, Cost = math.max(25, Config.Stages[stage].Trophies * 15), Color = eggColors[id], Odds = odds}
+	for _, row in newEggPets[id] do table.insert(odds, {Pet = row[1], Chance = row[2]}) end
+	S.Eggs[id] = {Id = id, Name = info.Name, Stage = 1, Cost = info.Cost or 0, Color = info.Color, Odds = odds, Robux = info.Robux, Product = info.Product}
 end
+local _ = LEGACY_EGGS; local __ = eggStages; local ___ = eggColors; local ____ = eggPets -- legacy pets above stay registered
+
+-- ROBUX PETS (Store + lobby special pet). Rainbow name in the UI. Product Id 0 = not purchasable yet.
+S.RobuxPets = {
+	{Pet = pet("NineTailSpiritFox", "Nine-Tail Spirit Fox", "Secret", 99, "fox", C(255, 130, 40), C(255, 235, 200)), Product = "PetSpiritFox", Robux = 799, Special = true},
+	{Pet = pet("ThunderKirinPup", "Thunder Kirin Pup", "Mythic", 25, "beast", C(120, 190, 255), C(255, 250, 160)), Product = "PetKirinPup", Robux = 199},
+	{Pet = pet("SummitToadSage", "Summit Toad Sage", "Mythic", 50, "toad", C(110, 200, 90), C(255, 220, 120)), Product = "PetToadSage", Robux = 349},
+}
+-- daily reward pet (Day 7)
+pet("SpiritDragon", "Spirit Dragon", "Legendary", 10, "dragon", C(120, 200, 255), C(255, 255, 255))
 S.MaxPetsOwned = 60
 S.BasePetSlots = 3
 
@@ -140,7 +187,35 @@ S.DailyStreakReset = 48 * 3600
 function S.DailyReward(streak: number, highest: number): number
 	return math.floor(Config.Stages[highest].Trophies * (10 + 5 * math.min(streak, 7)))
 end
-S.PlaytimeRewards = {{Minutes = 5, Mult = 8}, {Minutes = 15, Mult = 15}, {Minutes = 30, Mult = 30}, {Minutes = 60, Mult = 60}}
+S.PlaytimeRewards = {{Minutes = 5, Mult = 8}, {Minutes = 15, Mult = 15}, {Minutes = 30, Mult = 30}, {Minutes = 60, Mult = 60}} -- legacy (replaced by Gifts)
+
+-- DAILY REWARDS (7-day week, +1 Anime Eyes layout). Kind: Trophies (x stage trophies), Boost (x2 Hand Signs, minutes),
+-- TrophyBoost (x2 Trophies, minutes), Aura (id), Hatch (egg id, count), Pet (pet id).
+S.DailyWeek = {
+	{Kind = "Trophies", Mult = 10},
+	{Kind = "Boost", Minutes = 5},
+	{Kind = "Aura", Aura = "Blue", Mult = 20},       -- falls back to Trophies x Mult if already owned
+	{Kind = "Trophies", Mult = 30},
+	{Kind = "Hatch", Egg = "Summoning", Count = 3},
+	{Kind = "TrophyBoost", Minutes = 15},
+	{Kind = "Pet", Pet = "SpiritDragon"},
+}
+
+-- FREE GIFTS (session timers; daily claim caps). Pools are weighted (%).
+S.Gifts = {
+	{Id = "g5", Title = "Every 5 Min", Minutes = 5, PerDay = 9, Color = C(70, 150, 240), Icon = "Gift", Pool = {
+		{Kind = "Trophies", Mult = 6, Chance = 52}, {Kind = "Hatch", Egg = "Celestial", Count = 1, Chance = 25},
+		{Kind = "Boost", Minutes = 1, Chance = 8}, {Kind = "Trophies", Mult = 18, Chance = 10}, {Kind = "Hatch", Egg = "Summoning", Count = 1, Chance = 5},
+	}},
+	{Id = "g15", Title = "Every 15 Min", Minutes = 15, PerDay = 4, Color = C(170, 90, 240), Icon = "GiftBlue", Pool = {
+		{Kind = "Trophies", Mult = 25, Chance = 45}, {Kind = "Hatch", Egg = "Celestial", Count = 3, Chance = 20}, {Kind = "Boost", Minutes = 3, Chance = 10},
+		{Kind = "TrophyBoost", Minutes = 5, Chance = 15}, {Kind = "Hatch", Egg = "Summoning", Count = 1, Chance = 8}, {Kind = "Trophies", Mult = 90, Chance = 2},
+	}},
+	{Id = "g60", Title = "Every 60 Min", Minutes = 60, PerDay = 1, Color = C(250, 190, 60), Icon = "Chest", Pool = {
+		{Kind = "Trophies", Mult = 110, Chance = 47}, {Kind = "Hatch", Egg = "Summoning", Count = 3, Chance = 25}, {Kind = "Boost", Minutes = 8, Chance = 13},
+		{Kind = "TrophyBoost", Minutes = 15, Chance = 12}, {Kind = "Trophies", Mult = 500, Chance = 3},
+	}},
+}
 S.MilestoneStages = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}
 
 -- Redeemable codes. Add real codes here when you announce them (no active codes are invented).
@@ -154,17 +229,47 @@ S.GamePasses = {
 	ExtraPets = {Name = "+3 Pet Slots", Id = 0},
 	VIP = {Name = "VIP (+25% everything)", Id = 0},
 	AutoClicker = {Name = "OP Auto Clicker (5 trains/sec)", Id = 0},
+	ZoneGoldenDojo = {Name = "Golden Dojo (x8 zone)", Id = 0},
+	ZoneThunderDome = {Name = "Thunder Dome (x25 zone)", Id = 0},
+	ZoneDragonGate = {Name = "Dragon Gate (x50 zone)", Id = 0},
+	ZoneSageThrone = {Name = "Sage Throne (x250 zone)", Id = 0},
 }
 S.DevProducts = {
 	Boost15 = {Name = "2x Hand Signs (15 min)", Id = 0},
 	PackSmall = {Name = "Hand Sign Pack S", Id = 0, Clicks = 500},
 	PackMedium = {Name = "Hand Sign Pack M", Id = 0, Clicks = 3000},
 	PackLarge = {Name = "Hand Sign Pack L", Id = 0, Clicks = 15000},
+	-- Robux eggs / pets / daily skip (owner 2026-11-02). Id 0 until the owner creates the products.
+	EggShadow = {Name = "Shadow Egg (1 hatch)", Id = 0, Egg = "Lightning"},
+	EggMythic = {Name = "Mythic Egg (1 hatch)", Id = 0, Egg = "Divine"},
+	PetSpiritFox = {Name = "Nine-Tail Spirit Fox", Id = 0, Pet = "NineTailSpiritFox"},
+	PetKirinPup = {Name = "Thunder Kirin Pup", Id = 0, Pet = "ThunderKirinPup"},
+	PetToadSage = {Name = "Summit Toad Sage", Id = 0, Pet = "SummitToadSage"},
+	DailyUnlockAll = {Name = "Unlock all Daily Rewards", Id = 0, Robux = 149, UnlockDaily = true},
 }
 -- free auto clicker: runs for ActiveSeconds, then needs CooldownSeconds before it can be claimed again
 S.FreeAuto = {ActiveSeconds = 180, CooldownSeconds = 420, TrainsPerSecond = 2}
 S.OPAutoTrainsPerSecond = 5
 
+-- Lobby training stations (issue #14). Structure mirrors +1 Anime Eyes' World 1 field: 13 zones, 9 won with
+-- Rebirths, 4 Robux pass zones. Standing inside a zone multiplies training (GameService.StationMultiplier).
+-- Theme = a model in ServerStorage.LobbyAssets.Stations, else a part build in LobbyBuilder.
+-- PROPOSED DEFAULTS — owner to balance. Pass zones stay locked until real game passes exist (Id = 0 => "not available").
+S.TrainingStations = {
+	{Name = "Training Dummies", Mult = 2, Rebirths = 0, Theme = "Dummy", Color = C(120, 255, 130)},
+	{Name = "Boxing Ring", Mult = 3, Rebirths = 2, Theme = "shrine", Color = C(255, 214, 90)},
+	{Name = "Chakra Pool", Mult = 5, Rebirths = 6, Theme = "ChakraCircle", Color = C(90, 220, 255)},
+	{Name = "Fire Forge", Mult = 7, Rebirths = 12, Theme = "furnace", Color = C(255, 150, 60)},
+	{Name = "Golden Dojo", Mult = 8, Pass = "ZoneGoldenDojo", Robux = 99, Theme = "Dojo", Color = C(255, 210, 60)},
+	{Name = "Scroll Temple", Mult = 10, Rebirths = 20, Theme = "ScrollAltar", Color = C(255, 200, 80)},
+	{Name = "Storm Pagoda", Mult = 12, Rebirths = 28, Theme = "tower", Color = C(120, 200, 255)},
+	{Name = "Gravity Seal", Mult = 20, Rebirths = 36, Theme = "portal", Color = C(190, 110, 255)},
+	{Name = "Thunder Dome", Mult = 25, Pass = "ZoneThunderDome", Robux = 299, Theme = "dome", Color = C(140, 220, 255)},
+	{Name = "Crimson Altar", Mult = 35, Rebirths = 44, Theme = "orb", Color = C(255, 80, 100)},
+	{Name = "Void Totem", Mult = 40, Rebirths = 56, Theme = "Totem", Color = C(170, 120, 255)},
+	{Name = "Dragon Gate", Mult = 50, Pass = "ZoneDragonGate", Robux = 699, Theme = "ToriiArch", Color = C(255, 120, 120)},
+	{Name = "Sage Throne", Mult = 250, Pass = "ZoneSageThrone", Robux = 1800, Theme = "beam", Color = C(200, 120, 255)},
+}
 -- issue #13 guard: lobby-hub systems (Boss Shop / Fuse) are NOT built yet. These are
 -- empty STUBS so SystemsService handlers fail safely instead of erroring. Filled in by the lobby issue.
 S.BossShop = S.BossShop or {}

@@ -62,7 +62,8 @@ function GameService.RebirthMultiplier(data: any): number
 	return 1 + data.Rebirths * 0.75
 end
 GameService.UpgradeLevel = function(data: any, id: string): number return data.Upgrades[id] or 0 end
-GameService.TrophyBonus = function(_player: Player, _data: any): number return 1 end -- SystemsService replaces (passes)
+GameService.HasPass = function(_player: Player, _key: string): boolean return false end -- SystemsService replaces (real game-pass ownership)
+GameService.TrophyBonus = function(_player: Player, _data: any, _excludeDoublePass: boolean?): number return 1 end -- SystemsService replaces (passes)
 GameService.SnapshotExtras = {} :: {(Player, any, any) -> ()}
 
 ---------------------------------------------------------------- replication
@@ -125,10 +126,10 @@ function GameService.AddHandSigns(player: Player, amount: number)
 	GameService.Refresh(player)
 end
 
-function GameService.AddTrophies(player: Player, amount: number)
+function GameService.AddTrophies(player: Player, amount: number, excludeDoublePass: boolean?)
 	local data = DataService.Get(player)
 	if not data or not DataService.CanMutate(player) or amount ~= amount or amount <= 0 then return end
-	local mult = (1 + 0.25 * GameService.UpgradeLevel(data, "TrophyGain")) * GameService.TrophyBonus(player, data)
+	local mult = (1 + 0.25 * GameService.UpgradeLevel(data, "TrophyGain")) * GameService.TrophyBonus(player, data, excludeDoublePass)
 	amount = math.floor(amount * mult + 0.5)
 	data.Trophies += amount
 	data.LifetimeTrophies += amount
@@ -207,8 +208,26 @@ end)
 
 ---------------------------------------------------------------- stage progression (per player)
 GameService.PendingPads = {} :: {[Player]: {[string]: boolean}}
+-- GATES (owner request): you can't walk into the next stage until this stage's enemies are dead. GateReach is the
+-- furthest stage the player may stand in right now: entering from the lobby = 1, teleporting = that stage, clearing
+-- the reach stage opens its gate (reach + 1). Even previously-cleared stages must be cleared again to walk on.
+GameService.GateReach = {} :: {[Player]: number}
+function GameService.SetReach(player: Player, stage: number)
+	stage = math.clamp(stage, 1, Config.StageCount)
+	if GameService.GateReach[player] == stage then return end
+	GameService.GateReach[player] = stage
+	player:SetAttribute("GateReach", stage) -- client colours the gate walls from this; the guard below enforces it
+end
 function GameService.RemainingFor(data: any, stage: number): number
-	return math.max(0, Config.Economy.KillsToClear - (data.StageKills[tostring(stage)] or 0))
+	return math.max(0, Config.KillsToClear(stage) - (data.StageKills[tostring(stage)] or 0))
+end
+-- a fresh enemy set was spawned for this player's stage (EnemyService): the kill counter starts again, so the gate
+-- opens exactly when every enemy of the current set is dead (enemies no longer respawn inside a set)
+function GameService.ResetStageKills(player: Player, stage: number)
+	local data = DataService.Get(player)
+	if not data then return end
+	data.StageKills[tostring(stage)] = 0
+	GameService.Refresh(player)
 end
 
 function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
@@ -221,7 +240,7 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 	GameService.AddHandSigns(player, math.max(1, st.Recommended * (isBoss and 0.02 or 0.005)) * GameService.RebirthMultiplier(data))
 	local key = tostring(stage)
 	data.StageKills[key] = (data.StageKills[key] or 0) + 1
-	if data.StageKills[key] >= Config.Economy.KillsToClear then
+	if data.StageKills[key] >= Config.KillsToClear(stage) then
 		data.StageKills[key] = 0
 		local first = not data.CompletedStages[key]
 		data.CompletedStages[key] = true
@@ -230,6 +249,7 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 		end
 		GameService.PendingPads[player] = GameService.PendingPads[player] or {}
 		GameService.PendingPads[player][key] = true
+		if (GameService.GateReach[player] or 1) <= stage then GameService.SetReach(player, math.min(stage + 1, data.HighestUnlockedStage)) end
 		GameService.AddXP(player, st.XP * 6)
 		GameService.Notify(player, "StageCleared", {Stage = stage, First = first})
 		GameService.CheckUnlocks(player)
@@ -238,17 +258,97 @@ function GameService.CreditKill(player: Player, stage: number, isBoss: boolean)
 	GameService.Refresh(player)
 end
 
--- trophy pad: claim the stage-clear reward (once per clear)
-function GameService.ClaimPad(player: Player, stage: number)
+-- WIN PADS (owner request): after clearing a stage the player chooses: collect their wins on the pad (which
+-- sends them back to the lobby) or keep going to the next stage. Two pads per stage:
+--   TrophyPad   -> x1 stage reward, teleport to lobby
+--   TrophyPadX2 -> x2 stage reward for owners of the 2x Trophies pass (prompts the pass otherwise), teleport to lobby
+-- One pass, no stacking: 2x Trophies doubles trophies everywhere AND unlocks the x2 pad; pad rewards skip the pass's
+-- general doubling so the x1 pad pays x1 and the x2 pad pays exactly x2 (never x4).
+-- The reward is pending per player per clear (server-side), so touching twice / both pads never pays twice.
+function GameService.ClaimPad(player: Player, stage: number, mult: number?): boolean
 	local pads = GameService.PendingPads[player]
 	local key = tostring(stage)
-	if not pads or not pads[key] then return end
+	if not pads or not pads[key] then return false end
 	pads[key] = nil
 	local st = Config.Stages[stage]
-	local amt = st.Trophies * 10
-	GameService.AddTrophies(player, amt)
-	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt})
+	local amt = st.Trophies * 10 * (mult or 1)
+	GameService.AddTrophies(player, amt, true)
+	GameService.Notify(player, "PadClaimed", {Stage = stage, Amount = amt, Mult = mult or 1})
+	GameService.Refresh(player)
+	task.delay(0.6, function() -- short beat for the reward pop, then back to the hub
+		local char = player.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and player.Parent then
+			root.CFrame = GameService.StageSpawnCFrame(0)
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
+	return true
 end
+
+local WIN_PAD_PASS = "DoubleTrophies" -- the single 2x Trophies pass
+function GameService.ClaimPadX2(player: Player, stage: number): boolean
+	local pads = GameService.PendingPads[player]
+	if not pads or not pads[tostring(stage)] then return false end
+	if GameService.HasPass(player, WIN_PAD_PASS) then return GameService.ClaimPad(player, stage, 2) end
+	local SC = require(ReplicatedStorage.Shared.SystemsConfig)
+	local gp = SC.GamePasses[WIN_PAD_PASS]
+	if gp and gp.Id ~= 0 then
+		game:GetService("MarketplaceService"):PromptGamePassPurchase(player, gp.Id)
+	else
+		GameService.Notify(player, "Toast", "x2 Wins needs the 2x Trophies pass (not available yet) - use the normal pad")
+	end
+	return false
+end
+
+-- runtime pad setup for every stage (adds the x2 pad beside the existing TrophyPad; stages are not rebuilt)
+local function padLabel(pad: BasePart, title: string, sub: string, color: Color3)
+	local old = pad:FindFirstChild("PadLabel")
+	if old then old:Destroy() end
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "PadLabel"; bb.Size = UDim2.fromScale(12, 4.6); bb.StudsOffsetWorldSpace = Vector3.new(0, 5, 0)
+	bb.MaxDistance = 140; bb.LightInfluence = 0; bb.AlwaysOnTop = false; bb.Parent = pad
+	for i, t in {{title, 0, 0.6, color}, {sub, 0.6, 0.4, Color3.new(1, 1, 1)}} do
+		local l = Instance.new("TextLabel")
+		l.BackgroundTransparency = 1; l.Font = Enum.Font.FredokaOne; l.TextScaled = true; l.Text = t[1]; l.TextColor3 = t[4]
+		l.Position = UDim2.fromScale(0, t[2]); l.Size = UDim2.fromScale(1, t[3])
+		local st = Instance.new("UIStroke"); st.Thickness = i == 1 and 4 or 3; st.Color = Color3.fromRGB(20, 16, 28); st.Parent = l
+		l.Parent = bb
+	end
+end
+local padDebounce: {[Player]: number} = {}
+local function buildWinPads()
+	local course = workspace:FindFirstChild("StageCourse")
+	if not course then return end
+	for _, stageModel in course:GetChildren() do
+		local pad = stageModel:FindFirstChild("TrophyPad") :: BasePart?
+		local stage = pad and (pad:GetAttribute("Stage") or tonumber(stageModel.Name:match("%d+")))
+		if pad and stage then
+			padLabel(pad, "COLLECT WINS", "Back to lobby", Color3.fromRGB(255, 214, 60))
+			if not stageModel:FindFirstChild("TrophyPadX2") then
+				local x2 = pad:Clone()
+				x2.Name = "TrophyPadX2"
+				for _, c in x2:GetChildren() do if not c:IsA("Attachment") then c:Destroy() end end
+				x2.Color = Color3.fromRGB(190, 90, 255)
+				x2.Material = Enum.Material.Neon
+				-- beside the normal pad, towards the path (the outer side runs into the cliff rim)
+				local side = pad.Position.Z >= 0 and 1 or -1
+				x2.CFrame = pad.CFrame - Vector3.new(0, 0, side * (pad.Size.Z + 3))
+				x2:SetAttribute("Stage", stage)
+				x2.Parent = stageModel
+				padLabel(x2, "x2 WINS", "2x Trophies pass · back to lobby", Color3.fromRGB(220, 150, 255))
+				x2.Touched:Connect(function(hit)
+					local player = Players:GetPlayerFromCharacter(hit.Parent)
+					if not player then return end
+					if os.clock() - (padDebounce[player] or 0) < 1.5 then return end
+					padDebounce[player] = os.clock()
+					GameService.ClaimPadX2(player, stage)
+				end)
+			end
+		end
+	end
+end
+Players.PlayerRemoving:Connect(function(p) padDebounce[p] = nil end)
 
 function GameService.LobbySpawnCFrame(): CFrame?
 	local lobby = workspace:FindFirstChild("Lobby")
@@ -271,16 +371,40 @@ end
 
 GameService.Remotes.TeleportStage.OnServerEvent:Connect(function(player: Player, stage: any)
 	if not GameService.RateOk(player, "tp", 1) then return end
-	if typeof(stage) ~= "number" then return end
+	if typeof(stage) ~= "number" or stage ~= stage or math.abs(stage) == math.huge then return end
 	local data = DataService.Get(player)
 	if not data then return end
 	stage = math.floor(stage)
 	if stage < 0 or stage > data.HighestUnlockedStage then return end -- 0 = lobby
 	if stage > 0 then data.CurrentStage = stage end
+	GameService.SetReach(player, math.max(stage, 1))
 	local char = player.Character
 	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then root.CFrame = GameService.StageSpawnCFrame(stage) end
 end)
+
+-- lobby training stations (issue #14): inside a station Zone, training is multiplied if Rebirths >= requirement
+function GameService.StationMultiplier(player: Player, data: any, pos: Vector3): number
+	local lobby = workspace:FindFirstChild("Lobby")
+	local folder = lobby and lobby:FindFirstChild("TrainingStations")
+	if not folder then return 1 end
+	local stations = require(game:GetService("ReplicatedStorage").Shared.SystemsConfig).TrainingStations
+	if not stations then return 1 end
+	for _, m in folder:GetChildren() do
+		local zone = m:FindFirstChild("Zone") :: BasePart?
+		local idx = zone and zone:GetAttribute("StationIndex")
+		local st = idx and stations[idx]
+		if zone and st then
+			local lp = zone.CFrame:PointToObjectSpace(pos)
+			local h = zone.Size / 2
+			if math.abs(lp.X) <= h.X and math.abs(lp.Y) <= h.Y and math.abs(lp.Z) <= h.Z then
+				if st.Pass then return GameService.HasPass(player, st.Pass) and st.Mult or 1 end
+				return (data.Rebirths or 0) >= (st.Rebirths or 0) and st.Mult or 1
+			end
+		end
+	end
+	return 1
+end
 
 -- server guard: players cannot stand past their unlocked gate
 task.spawn(function()
@@ -297,7 +421,25 @@ task.spawn(function()
 					root.CFrame = GameService.StageSpawnCFrame(data.HighestUnlockedStage)
 					root.AssemblyLinearVelocity = Vector3.zero
 				end
-				player:SetAttribute("InLobby", x < -Config.StageLength / 2)
+				local inLobby = x < -Config.StageLength / 2 - 12 -- the lobby arena sits well west of Stage 1's start wall
+				player:SetAttribute("InLobby", inLobby)
+				if inLobby then GameService.SetReach(player, 1) end
+				-- closed gate: stand in front of it until this stage's enemies are dead
+				local reach = GameService.GateReach[player] or 1
+				local gateX = (reach - 1) * Config.StageLength + Config.StageLength / 2 - 4
+				if not inLobby and x > gateX + 3 then
+					local p = root.Position
+					root.CFrame = CFrame.new(gateX - 8, p.Y + 0.5, p.Z) * root.CFrame.Rotation
+					root.AssemblyLinearVelocity = Vector3.zero
+					x = gateX - 8
+					GameService.Notify(player, "Toast", "Defeat the enemies to open the gate!")
+				end
+				local okZ, zm = pcall(GameService.StationMultiplier, player, data, root.Position)
+				zm = (okZ and inLobby) and zm or 1
+				if player:GetAttribute("ZoneMult") ~= zm then
+					player:SetAttribute("ZoneMult", zm)
+					GameService.Refresh(player) -- keep the displayed multiplier consistent with training gains
+				end
 				local stageIdx = math.clamp(math.floor((x + Config.StageLength / 2) / Config.StageLength) + 1, 1, Config.StageCount)
 				if player:GetAttribute("InStage") ~= stageIdx then
 					player:SetAttribute("InStage", stageIdx)
@@ -311,6 +453,7 @@ end)
 
 ---------------------------------------------------------------- lifecycle
 function GameService.Start()
+	task.spawn(buildWinPads)
 	-- Studio-only QA hook (never exists on live servers): ServerStorage.DevGrant:Invoke(player, {Stage=n, HandSigns=n, Trophies=n})
 	if game:GetService("RunService"):IsStudio() then
 		local bf = Instance.new("BindableFunction")
@@ -339,12 +482,14 @@ function GameService.Start()
 		local b = Instance.new("IntValue"); b.Name = "Rebirths"; b.Parent = ls
 		local c = Instance.new("IntValue"); c.Name = "Stage"; c.Parent = ls
 		ls.Parent = player
-		-- course shrank from 50 to 30 stages: clamp old saves
+		-- clamp old saves to the current course
 		data.HighestUnlockedStage = math.clamp(data.HighestUnlockedStage, 1, Config.StageCount)
 		data.CurrentStage = math.clamp(data.CurrentStage, 1, data.HighestUnlockedStage)
 		GameService.CheckUnlocks(player)
 		GameService.Refresh(player)
 		local function spawnAt(char: Model)
+			local hum = char:WaitForChild("Humanoid", 5) :: Humanoid?
+			if hum then hum.WalkSpeed = Config.WalkSpeed end -- 1.75x walk speed (owner request)
 			local root = char:WaitForChild("HumanoidRootPart", 5) :: BasePart?
 			if root then
 				task.wait()
@@ -354,7 +499,7 @@ function GameService.Start()
 		player.CharacterAdded:Connect(spawnAt)
 		if player.Character then task.spawn(spawnAt, player.Character) end
 	end)
-	Players.PlayerRemoving:Connect(function(p) GameService.PendingPads[p] = nil; lastEquip[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p) GameService.PendingPads[p] = nil; lastEquip[p] = nil; GameService.GateReach[p] = nil end)
 end
 
 return GameService
