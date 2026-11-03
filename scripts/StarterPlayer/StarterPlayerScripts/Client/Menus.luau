@@ -81,31 +81,37 @@ local TAB_TITLE = {Signs = "My Hand Signs", Pets = "Pets", Auras = "Auras", Upgr
 local TAB_COLOR = {Signs = C(232, 62, 92), Pets = C(232, 62, 92), Auras = C(232, 62, 92), Shop = C(232, 62, 92), Gifts = C(232, 62, 92),
 	Rebirth = C(150, 74, 230), Rewards = C(150, 74, 230), Quests = C(255, 150, 40), Codes = C(150, 74, 230), Settings = C(150, 74, 230), Top = C(150, 74, 230),
 	Daily = C(60, 150, 240), Upgrades = C(60, 180, 90), Stages = C(150, 74, 230)}
+-- header tones from the pack palette (Hand Signs = blue like the mockup the owner picked, Store = red)
+local TAB_TONE = {Signs = "Blue", Pets = "Green", Auras = "Pink", Shop = "Red", Gifts = "Pink", Rebirth = "Purple", Rewards = "Gold", Quests = "Gold",
+	Codes = "Purple", Settings = "Grey", Top = "Gold", Daily = "Green", Upgrades = "Lime", Stages = "Blue"}
 local headerIcon: ImageLabel
 local headerFrame: Frame
 local detail: Frame? = nil
 function M.Init(c)
 	ctx = c
 	root = U.new("Frame", {Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.6, 0.74),
-		BackgroundColor3 = C(74, 72, 94), Visible = false, Parent = c.Gui, ZIndex = 5})
+		BackgroundColor3 = C(18, 18, 22), BackgroundTransparency = 0.12, Visible = false, Parent = c.Gui, ZIndex = 5})
 	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(900, 640), Parent = root})
 	U.corner(6).Parent = root
-	U.stroke(5, C(16, 14, 22), Enum.ApplyStrokeMode.Border).Parent = root
-	headerFrame = U.new("Frame", {Name = "Frame", Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = C(232, 62, 92), ZIndex = 5, Parent = root})
+	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = root
+	local bodyRim = U.new("Frame", {Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
+	U.corner(4).Parent = bodyRim
+	U.new("UIStroke", {Thickness = 2, Color = Color3.new(1, 1, 1), Transparency = 0.2, Parent = bodyRim})
+	-- Studs Pack header: two-tone studded bar with shine, the panel's icon popping out of the top-left corner
+	headerFrame = U.new("Frame", {Name = "Frame", Size = UDim2.new(1, 0, 0, 72), BackgroundColor3 = C(255, 255, 255), ZIndex = 5, Parent = root})
 	U.corner(6).Parent = headerFrame
-	U.new("Frame", {Name = "HeaderFill", Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -12), BorderSizePixel = 0, BackgroundColor3 = C(232, 62, 92), ZIndex = 5, Parent = headerFrame})
-	U.new("Frame", {Size = UDim2.new(1, 0, 0, 5), Position = UDim2.new(0, 0, 1, 0), BorderSizePixel = 0, BackgroundColor3 = C(16, 14, 22), ZIndex = 6, Parent = headerFrame})
-	studs(headerFrame, 0.1, 38)
-	headerIcon = U.new("ImageLabel", {BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(62, 62), Position = UDim2.fromOffset(12, 5), ZIndex = 7, Parent = headerFrame})
-	titleLabel = label(headerFrame, "", UDim2.fromOffset(84, 10), UDim2.new(1, -170, 1, -20), nil, Enum.TextXAlignment.Left, 4)
-	titleLabel.Font = U.TitleFont
+	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = headerFrame
+	U.gloss(headerFrame, U.TONES.Red[1], 6, U.TONES.Red[2])
+	studs(headerFrame, 0.3, 34)
+	headerIcon = U.new("ImageLabel", {BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(112, 112), Position = UDim2.fromOffset(-26, -34), Rotation = -10, ZIndex = 9, Parent = headerFrame})
+	titleLabel = label(headerFrame, "", UDim2.fromOffset(100, 8), UDim2.new(1, -190, 1, -16), nil, Enum.TextXAlignment.Left, 4)
+	titleLabel.FontFace = U.FontHeavy
 	titleLabel.ZIndex = 7
-	local close = U.button({Text = "X", Color = C(235, 50, 80), Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -10, 0, 8), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 4, Parent = headerFrame})
+	local close = U.button({Text = "X", Color = U.TONES.Close[1], Color2 = U.TONES.Close[2], Size = UDim2.fromOffset(56, 56), Position = UDim2.new(1, -10, 0, 8), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 3.5, StudTile = 18, Parent = headerFrame})
 	close.ZIndex = 8
-	studs(close, 0.25, 22)
 	close.MouseButton1Click:Connect(function() M.Close() end)
 	body = U.new("ScrollingFrame", {Position = UDim2.fromOffset(14, 88), Size = UDim2.new(1, -28, 1, -100), BackgroundTransparency = 1, BorderSizePixel = 0,
-		ScrollBarThickness = 8, ScrollBarImageColor3 = C(220, 220, 235), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 5, Parent = root})
+		ScrollBarThickness = 10, ScrollBarImageColor3 = C(255, 255, 255), AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), ZIndex = 5, Parent = root})
 	U.new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 12), Parent = body})
 	-- phones: the panel takes most of the screen
 	local function fit()
@@ -126,10 +132,9 @@ function M.Open(id: string)
 	if current == id and root.Visible then M.Close(); return end
 	current = id
 	if detail then detail:Destroy(); detail = nil end
-	local col = TAB_COLOR[id] or C(232, 62, 92)
-	titleLabel.Text = TAB_TITLE[id] or id
-	headerFrame.BackgroundColor3 = col
-	headerFrame.HeaderFill.BackgroundColor3 = col
+	local tone = U.TONES[TAB_TONE[id] or "Red"]
+	titleLabel.Text = string.upper(TAB_TITLE[id] or id)
+	U.fill(headerFrame, tone[1], tone[2])
 	headerIcon.Image = (id == "Signs" and AssetsMod.SignIcons and AssetsMod.SignIcons[attr("Equipped") or "Tiger"]) or AssetsMod.Icon(TAB_ICON[id])
 	if M.Fit then M.Fit() end
 	root.Visible = true
@@ -177,13 +182,13 @@ local function signState(id: string, unlocked: {[string]: boolean}): string
 end
 local function signButton(parent: Instance, id: string, st: string, size: UDim2, pos: UDim2)
 	local s = Config.HandSigns[id]
-	local text, col
-	if st == "Equipped" then text, col = "EQUIPPED", U.GREEN
-	elseif st == "Owned" then text, col = "EQUIP", U.GREEN
-	elseif st == "Buy" then text, col = "BUY \u{1F3C6}" .. fmt(s.Price), U.ORANGE
-	else text, col = "\u{1F3C6} " .. fmt(s.Price), U.GREY end
-	local b, bl = U.button({Text = text, Color = col, Size = size, Position = pos, AnchorPoint = Vector2.new(0.5, 1), Radius = 6, StrokeT = 3, Parent = parent})
-	studs(b, 0.35, 18)
+	local text, tone
+	if st == "Equipped" then text, tone = "EQUIPPED", U.TONES.Blue
+	elseif st == "Owned" then text, tone = "EQUIP", U.TONES.Lime
+	elseif st == "Buy" then text, tone = fmt(s.Price), U.TONES.Gold
+	else text, tone = fmt(s.Price), U.TONES.Dark end
+	local b, bl = U.button({Text = text, Color = tone[1], Color2 = tone[2], Size = size, Position = pos, AnchorPoint = Vector2.new(0.5, 1), Radius = 6, StrokeT = 3, StudTile = 16, Parent = parent})
+	if st == "Buy" or st == "Locked" then U.iconLeft(b, bl, AssetsMod.Icon("Trophy"), 0.24) end
 	b.MouseButton1Click:Connect(function()
 		if st == "Owned" then ctx.EquipSign:FireServer(id)
 		elseif st == "Buy" then
@@ -261,14 +266,21 @@ builders.Signs = function(parent)
 	for i, id in Config.HandSignOrder do
 		local s = Config.HandSigns[id]
 		local st = signState(id, unlocked)
-		local f = card(parent, TIER_COLOR[i] or C(150, 90, 230), i)
+		local f = card(parent, C(86, 86, 92), i)
+		-- tier colour survives as a coloured inner rim + tinted light burst (pack "Index" card look)
+		local tierRim = U.new("Frame", {Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, Parent = f})
+		U.corner(6).Parent = tierRim
+		U.new("UIStroke", {Thickness = 2.5, Color = TIER_COLOR[i] or C(150, 90, 230), Parent = tierRim})
+		U.new("ImageLabel", {Name = "Burst", BackgroundTransparency = 1, Image = "rbxassetid://98508264222687", ScaleType = Enum.ScaleType.Fit,
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.43), Size = UDim2.fromScale(1.05, 0.86),
+			ImageColor3 = (TIER_COLOR[i] or C(255, 255, 255)):Lerp(Color3.new(1, 1, 1), 0.55), ImageTransparency = 0.1, ZIndex = 5, Parent = f})
 		if i >= 13 then -- top tiers get a rainbow card like the reference's best eyes
 			f:FindFirstChildOfClass("UIGradient").Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 120, 140)), ColorSequenceKeypoint.new(0.35, C(255, 230, 120)),
 				ColorSequenceKeypoint.new(0.7, C(130, 255, 170)), ColorSequenceKeypoint.new(1, C(140, 180, 255))})
 			f:FindFirstChildOfClass("UIGradient").Rotation = 30
 			f.BackgroundColor3 = Color3.new(1, 1, 1)
 		end
-		local nm = label(f, s.Name, UDim2.fromScale(0.04, 0.025), UDim2.fromScale(0.92, 0.13), nil, nil, 3.5)
+		local nm = label(f, string.upper(s.Name), UDim2.fromScale(0.04, 0.025), UDim2.fromScale(0.92, 0.13), nil, nil, 3.5)
 		nm.ZIndex = 6
 		-- the artwork is the hero: ~64% of the card width, centred, never cropped
 		signArt(f, id, UDim2.fromScale(1, 0.6), UDim2.fromScale(0.5, 0.425), false)
@@ -322,13 +334,14 @@ builders.Pets = function(parent)
 			U.rainbow(bl)
 			b.MouseButton1Click:Connect(function() act("Hatch", eggId) end)
 		elseif open then
-			local b = U.button({Text = "\u{1F3C6} " .. fmt(egg.Cost) .. "  HATCH", Color = U.GREEN, Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 1, -52), Parent = f})
+			local b, bl = U.button({Text = fmt(egg.Cost) .. "  HATCH", Color = U.TONES.Lime[1], Color2 = U.TONES.Lime[2], Size = UDim2.new(1, -12, 0, 44), Position = UDim2.new(0, 6, 1, -52), Parent = f})
+			U.iconLeft(b, bl, AssetsMod.Icon("Trophy"), 0.2)
 			b.MouseButton1Click:Connect(function()
 				local res = act("Hatch", eggId)
 				if res and res.ok then ctx.HatchAnimation(eggId, res.pet) end
 			end)
 		else
-			label(f, "\u{1F512} REACH STAGE " .. egg.Stage, UDim2.new(0, 6, 1, -46), UDim2.new(1, -12, 0, 30), C(255, 130, 130))
+			label(f, "LOCKED: STAGE " .. egg.Stage, UDim2.new(0, 6, 1, -46), UDim2.new(1, -12, 0, 30), C(255, 130, 130))
 		end
 	end
 	-- inventory header
@@ -364,7 +377,7 @@ builders.Pets = function(parent)
 			label(f, string.upper(def.Rarity) .. "  +" .. fmt(def.Boost), UDim2.fromOffset(4, 102), UDim2.new(1, -8, 0, 16), rc == SC.RarityColor.Secret and C(255, 255, 255) or rc)
 			local eq = U.button({Text = isEq and "UNEQUIP" or "EQUIP", Color = isEq and C(230, 90, 60) or U.GREEN, Size = UDim2.new(1, -8, 0, 32), Position = UDim2.fromOffset(4, 120), Parent = f})
 			eq.MouseButton1Click:Connect(function() act("EquipPet", uid) end)
-			local lock = U.button({Text = rec.Locked and "\u{1F512}" or "\u{1F513}", Color = C(120, 120, 220), Size = UDim2.new(0.5, -6, 0, 28), Position = UDim2.fromOffset(4, 156), Parent = f})
+			local lock = U.button({Text = rec.Locked and "UNLOCK" or "LOCK", Color = C(120, 120, 220), Size = UDim2.new(0.5, -6, 0, 28), Position = UDim2.fromOffset(4, 156), Parent = f})
 			lock.MouseButton1Click:Connect(function() act("LockPet", uid) end)
 			local del = U.button({Text = "DELETE", Color = C(200, 60, 60), Size = UDim2.new(0.5, -6, 0, 28), Position = UDim2.new(0.5, 2, 0, 156), Parent = f})
 			local armed = false
@@ -396,7 +409,7 @@ builders.Auras = function(parent)
 		local n = label(f, a.Name, UDim2.fromOffset(94, 10), UDim2.new(0.42, -94, 0, 36), nil, Enum.TextXAlignment.Left, 3.5); n.ZIndex = 6
 		local m = label(f, "x" .. a.Mult .. " Hand Signs", UDim2.fromOffset(94, 48), UDim2.new(0.42, -94, 0, 26), C(255, 225, 90), Enum.TextXAlignment.Left, 2.5); m.ZIndex = 6
 		if not has then
-			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " \u{1F3C6}") or ("\u{1F512} Stage " .. a.Stage), UDim2.new(0.42, 0, 0.5, -16), UDim2.new(0.24, 0, 0, 32), Color3.new(1, 1, 1), Enum.TextXAlignment.Right, 3)
+			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " TROPHIES") or ("STAGE " .. a.Stage), UDim2.new(0.42, 0, 0.5, -16), UDim2.new(0.24, 0, 0, 32), Color3.new(1, 1, 1), Enum.TextXAlignment.Right, 3)
 			pr.ZIndex = 6
 		end
 		local text, col
@@ -426,8 +439,9 @@ builders.Upgrades = function(parent)
 		label(f, u.Name .. "  (" .. lvl .. "/" .. u.Max .. ")", UDim2.fromOffset(14, 6), UDim2.new(0.62, 0, 0, 30), nil, Enum.TextXAlignment.Left)
 		label(f, u.Desc, UDim2.fromOffset(14, 38), UDim2.new(0.62, 0, 0, 22), C(210, 210, 235), Enum.TextXAlignment.Left, 1)
 		local maxed = lvl >= u.Max
-		local b = U.button({Text = maxed and "MAX" or ("\u{1F3C6} " .. fmt(SC.UpgradeCost(id, lvl))), Color = maxed and U.GREY or U.GREEN,
+		local b, bl = U.button({Text = maxed and "MAX" or fmt(SC.UpgradeCost(id, lvl)), Color = maxed and U.GREY or U.GREEN,
 			Size = UDim2.new(0.33, 0, 0, 50), Position = UDim2.new(1, -10, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Parent = f})
+		if not maxed then U.iconLeft(b, bl, AssetsMod.Icon("Trophy"), 0.22) end
 		b.MouseButton1Click:Connect(function() if not maxed then act("BuyUpgrade", id) end end)
 	end
 end
@@ -469,7 +483,7 @@ builders.Stages = function(parent)
 	local highest = attr("Highest") or 1
 	do -- lobby hub (issue #14)
 		local f = card(parent, C(236, 128, 56), 0)
-		label(f, "\u{26E9} LOBBY", UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
+		label(f, "LOBBY", UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
 		label(f, "SHINOBI PLAZA", UDim2.fromOffset(6, 28), UDim2.new(1, -12, 0, 18), C(255, 240, 220), nil, 1.5)
 		local b = U.button({Text = "GO", Color = U.GREEN, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0, 6, 1, -34), Parent = f})
 		b.MouseButton1Click:Connect(function() ctx.TeleportStage:FireServer(0); M.Close() end)
@@ -477,8 +491,8 @@ builders.Stages = function(parent)
 	for i, st in Config.Stages do
 		local open = i <= highest
 		local f = card(parent, open and U.shade(st.Gate, 0.75) or C(60, 60, 72), i)
-		label(f, (done[tostring(i)] and "\u{2705} " or "") .. "STAGE " .. i, UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
-		label(f, open and st.Name or "\u{1F512} " .. fmt(st.Recommended), UDim2.fromOffset(6, 28), UDim2.new(1, -12, 0, 18), C(240, 240, 255), nil, 1.5)
+		label(f, "STAGE " .. i .. (done[tostring(i)] and " \u{2713}" or ""), UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
+		label(f, open and st.Name or ("LOCKED  " .. fmt(st.Recommended)), UDim2.fromOffset(6, 28), UDim2.new(1, -12, 0, 18), C(240, 240, 255), nil, 1.5)
 		if open then
 			local b = U.button({Text = "GO", Color = U.GREEN, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0, 6, 1, -34), Parent = f})
 			b.MouseButton1Click:Connect(function() ctx.TeleportStage:FireServer(i); M.Close() end)
@@ -507,7 +521,7 @@ builders.Quests = function(parent)
 		local key = tostring(stage)
 		local claimed = p.ClaimedMilestones and p.ClaimedMilestones[key]
 		local done = p.Completed and p.Completed[key]
-		rewardRow(parent, 10 + i, "CLEAR STAGE " .. stage, "\u{1F3C6} " .. fmt(Config.Stages[stage].Trophies * 50), claimed and "CLAIMED" or (done and "CLAIM" or "LOCKED"), done and not claimed, function()
+		rewardRow(parent, 10 + i, "CLEAR STAGE " .. stage, "+" .. fmt(Config.Stages[stage].Trophies * 50) .. " Trophies", claimed and "CLAIMED" or (done and "CLAIM" or "LOCKED"), done and not claimed, function()
 			local r = act("ClaimMilestone", stage)
 			if r and r.ok then ctx.Toast("+" .. fmt(r.amount) .. " Trophies!", C(255, 220, 80)) end
 		end)
@@ -663,8 +677,7 @@ local function shopCard(parent: Instance, order: number, color: Color3, title: s
 	label(f, sub, UDim2.new(0, 5, 0, 152), UDim2.new(1, -10, 0, 22), C(255, 236, 140), nil, 2).ZIndex = 8
 	local b, bl = U.button({Text = price, Color = U.GREEN, Size = UDim2.new(1, -14, 0, 44), Position = UDim2.new(0, 7, 1, -52), Radius = 6, StrokeT = 3, Parent = f})
 	b.ZIndex = 8
-	bl.Font = U.TitleFont
-	if robux then U.rainbow(bl) end
+	bl.Font = U.TitleFont -- Robux titles are rainbow; the price stays white on green for contrast
 	b.MouseButton1Click:Connect(onBuy)
 	return f
 end

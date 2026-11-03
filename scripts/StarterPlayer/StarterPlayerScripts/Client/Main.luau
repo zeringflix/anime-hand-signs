@@ -142,6 +142,7 @@ Anim.Start()
 ---------------------------------------------------------------- menu wiring
 local function open(id: string) Sfx.Play("Open"); Menus.Open(id) end
 E.SignsButton.MouseButton1Click:Connect(function() open("Signs") end)
+E.DailyBar.MouseButton1Click:Connect(function() open("Daily") end)
 for id, b in E.Grid do b.MouseButton1Click:Connect(function() open(id) end) end
 for id, b in E.TopIcons do
 	b.MouseButton1Click:Connect(function()
@@ -415,7 +416,7 @@ Remotes.Notify.OnClientEvent:Connect(function(kind: string, payload: any)
 		showWinChoice(payload.Stage)
 	elseif kind == "PadClaimed" then
 		closeWinChoice()
-		toast("+" .. fmt(payload.Amount) .. " \u{1F3C6} Wins!" .. ((payload.Mult or 1) > 1 and "  (x2)" or "") .. "  Back to the lobby!", C(255, 220, 80))
+		toast("+" .. fmt(payload.Amount) .. " Trophies!" .. ((payload.Mult or 1) > 1 and "  (x2)" or "") .. "  Back to the lobby!", C(255, 220, 80))
 		Sfx.Play("Coins")
 	elseif kind == "Toast" then
 		toast(tostring(payload), C(255, 200, 120))
@@ -565,6 +566,7 @@ task.spawn(function()
 		E.RebirthTag.TextColor3 = pct >= 100 and C(130, 255, 120) or C(255, 255, 255)
 		-- daily reward dot
 		E.DailyDot.Visible = p ~= nil and (serverNow - (p.LastDaily or 0)) >= SC.DailyCooldown
+		E.DailyBarDot.Visible = E.DailyDot.Visible
 		local giftReady = false
 		for _, g in SC.Gifts do
 			local at = p and p.GiftReady and p.GiftReady[g.Id]

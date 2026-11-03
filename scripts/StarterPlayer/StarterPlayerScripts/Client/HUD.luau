@@ -13,14 +13,14 @@ local function img(props: {[string]: any}): ImageLabel
 end
 local H = {}
 
--- reference-style square button: saturated body, dark outline, light inner bevel, big icon, label over the bottom edge
-local function tile(parent: Instance, color: Color3, icon: string, label: string, size: Vector2, order: number?)
-	local b = U.button({Text = "", Color = color, Size = UDim2.fromOffset(size.X, size.Y), Radius = 14, StrokeT = 4, LayoutOrder = order or 0, Parent = parent})
-	local inner = U.new("Frame", {Position = UDim2.fromOffset(5, 5), Size = UDim2.new(1, -10, 1, -10), BackgroundTransparency = 1, Parent = b})
-	U.corner(10).Parent = inner
-	U.new("UIStroke", {Thickness = 3, Color = Color3.new(1, 1, 1), Transparency = 0.55, Parent = inner})
-	local ic = img({Icon = icon, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.new(0.9, 0, 0.68, 0), Position = UDim2.new(0.5, 0, -0.04, 0), ZIndex = 2, Parent = b})
-	local lb = U.text({Text = label, Font = U.TitleFont, Size = UDim2.new(1, -6, 0.3, 0), Position = UDim2.new(0, 3, 0.67, 0), Stroke = 3.5, ZIndex = 3, Parent = b})
+-- Studs Pack tile (owner pick: UI variant 1): two-tone gradient body, black outline, white rim, raised studs,
+-- shine band, big pack icon, Gotham label over the bottom edge. `color` may be a U.TONES pair.
+local function tile(parent: Instance, color: Color3 | {Color3}, icon: string, label: string, size: Vector2, order: number?)
+	local c1, c2 = color, nil
+	if type(color) == "table" then c1, c2 = color[1], color[2] end
+	local b = U.button({Text = "", Color = c1 :: Color3, Color2 = c2, Size = UDim2.fromOffset(size.X, size.Y), Radius = 6, StrokeT = 3.5, StudTile = 30, LayoutOrder = order or 0, Parent = parent})
+	local ic = img({Icon = icon, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.new(0.86, 0, 0.7, 0), Position = UDim2.new(0.5, 0, 0.0, 0), ZIndex = 2, Parent = b})
+	local lb = U.text({Text = string.upper(label), Font = U.TitleFont, Size = UDim2.new(1, -4, 0.27, 0), Position = UDim2.new(0, 2, 0.71, 0), Stroke = 3, ZIndex = 3, Parent = b})
 	return b, ic, lb
 end
 H.Tile = tile
@@ -34,9 +34,9 @@ function H.Build(gui: ScreenGui)
 	U.new("UIGridLayout", {CellSize = UDim2.fromOffset(92, 92), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = left})
 	E.Grid = {}
 	local gridDefs = {
-		{"Shop", "Shop", "Store", C(235, 60, 80)}, {"Quests", "Quests", "Quests", C(255, 150, 40)},
-		{"Signs", "HandSign", "Hand Signs", C(235, 60, 80)}, {"Rebirth", "Rebirth", "Rebirth", C(150, 80, 230)},
-		{"Auras", "Aura", "Auras", C(235, 60, 80)}, {"Pets", "Pets", "Pets", C(255, 150, 40)},
+		{"Shop", "Shop", "Store", U.TONES.Red}, {"Quests", "Quests", "Quests", U.TONES.Gold},
+		{"Signs", "HandSign", "Signs", U.TONES.Blue}, {"Rebirth", "Rebirth", "Rebirth", U.TONES.Purple},
+		{"Auras", "Aura", "Auras", U.TONES.Pink}, {"Pets", "Pets", "Pets", U.TONES.Green},
 	}
 	for i, d in gridDefs do
 		local b, ic, lb = tile(left, d[4], d[2], d[3], Vector2.new(92, 92), i)
@@ -50,6 +50,14 @@ function H.Build(gui: ScreenGui)
 			E.Grid[d[1]] = b
 		end
 	end
+	-- wide DAILY REWARDS bar above the grid (pack layout); opens the same Daily panel as the top-right icon
+	local dailyBar, dl = U.button({Text = "DAILY REWARDS", Color = U.TONES.Green[1], Color2 = U.TONES.Green[2], Size = UDim2.fromOffset(196, 44), Radius = 6, StrokeT = 3.5, StudTile = 24, Name = "DailyBar", Parent = gui})
+	dl.TextColor3 = Color3.new(1, 1, 1)
+	E.DailyBar = dailyBar
+	E.DailyBarDot = U.new("Frame", {Size = UDim2.fromOffset(22, 22), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 2), BackgroundColor3 = C(255, 42, 90), Visible = false, ZIndex = 5, Parent = dailyBar})
+	U.corner(11).Parent = E.DailyBarDot
+	U.stroke(2.5, Color3.new(1, 1, 1), Enum.ApplyStrokeMode.Border).Parent = E.DailyBarDot
+	U.text({Text = "!", Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), Stroke = 1.5, ZIndex = 6, Parent = E.DailyBarDot})
 	E.RebirthTag = U.text({Text = "0%", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 0), Size = UDim2.fromOffset(60, 24), TextColor3 = C(130, 255, 120), Stroke = 2.5, Rotation = 10, ZIndex = 4, Parent = E.Grid.Rebirth})
 
 	---------------------------------------------------------------- counters under the grid (rebirths, trophies)
@@ -123,7 +131,9 @@ function H.Build(gui: ScreenGui)
 	U.stroke(4, C(25, 20, 35), Enum.ApplyStrokeMode.Border).Parent = lvl
 	E.LevelFill = U.new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C(255, 200, 40), Parent = lvl})
 	U.corner(14).Parent = E.LevelFill
-	U.grad(C(255, 225, 90), C(255, 160, 20)).Parent = E.LevelFill
+	U.grad(C(255, 234, 0), C(255, 106, 0)).Parent = E.LevelFill
+	U.studs(E.LevelFill, 0.35, 26)
+	U.studs(lvl, 0.75, 26)
 	E.LevelText = U.text({Text = "Level 1", Font = U.TitleFont, Position = UDim2.fromOffset(52, 6), Size = UDim2.new(0.5, 0, 1, -12), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5, Parent = lvl})
 	E.XPText = U.text({Text = "0 / 7", Font = U.TitleFont, Position = UDim2.new(0.5, 0, 0, 6), Size = UDim2.new(0.5, -16, 1, -12), TextXAlignment = Enum.TextXAlignment.Right, Stroke = 3.5, Parent = lvl})
 	img({Icon = "Star", Position = UDim2.fromOffset(-4, 128), Size = UDim2.fromOffset(88, 88), ZIndex = 3, Parent = bc})
@@ -132,7 +142,8 @@ function H.Build(gui: ScreenGui)
 	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), Parent = packs})
 	E.Packs = {}
 	for i, d in {{"PackSmall", C(255, 150, 40)}, {"PackMedium", C(150, 80, 230)}, {"PackLarge", C(235, 60, 60)}} do
-		local b, l = U.button({Text = "", Color = d[2], Size = UDim2.new(1 / 3, -7, 1, 0), LayoutOrder = i, Radius = 12, StrokeT = 4, Parent = packs})
+		local tone = ({U.TONES.Gold, U.TONES.Purple, U.TONES.Red})[i]
+		local b, l = U.button({Text = "", Color = tone[1], Color2 = tone[2], Size = UDim2.new(1 / 3, -7, 1, 0), LayoutOrder = i, Radius = 6, StrokeT = 3.5, StudTile = 22, Parent = packs})
 		img({Icon = "Chakra", Size = UDim2.fromOffset(46, 46), Position = UDim2.fromOffset(4, 4), ZIndex = 2, Parent = b})
 		l.Position = UDim2.fromOffset(46, 4)
 		l.Size = UDim2.new(1, -52, 1, -8)
@@ -142,7 +153,7 @@ function H.Build(gui: ScreenGui)
 
 	---------------------------------------------------------------- bottom right: abilities
 	local br = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.fromOffset(460, 290), BackgroundTransparency = 1, Parent = gui})
-	local function ability(size: number, pos: UDim2, color: Color3, key: string)
+	local function ability(size: number, pos: UDim2, color: {Color3}, key: string)
 		local b, ic, lb = tile(br, color, "", "", Vector2.new(size, size))
 		b.AnchorPoint = Vector2.new(1, 1)
 		b.Position = pos
@@ -157,11 +168,11 @@ function H.Build(gui: ScreenGui)
 		local cdText = U.text({Text = "", ZIndex = 3, Size = UDim2.fromScale(0.8, 0.45), Position = UDim2.fromScale(0.1, 0.2), Stroke = 3, Parent = b})
 		return {Button = b, Icon = ic, Name = lb, Cd = cd, CdText = cdText, Badge = badge}
 	end
-	E.Attack = ability(150, UDim2.new(1, 0, 1, 0), C(255, 140, 30), "M1")
+	E.Attack = ability(150, UDim2.new(1, 0, 1, 0), U.TONES.Gold, "M1")
 	E.Attack.Icon.Image = Assets.Icon("Fist")
 	E.Attack.Name.Text = "ATTACK"
-	E.AbilityE = ability(116, UDim2.new(1, -162, 1, 0), C(70, 150, 255), "E")
-	E.AbilityR = ability(116, UDim2.new(1, 0, 1, -162), C(150, 80, 230), "R")
+	E.AbilityE = ability(116, UDim2.new(1, -162, 1, 0), U.TONES.Blue, "E")
+	E.AbilityR = ability(116, UDim2.new(1, 0, 1, -162), U.TONES.Purple, "R")
 
 	-- auto clickers (left of the ability cluster)
 	local ac = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(160, 240), BackgroundTransparency = 1, Parent = br})
@@ -199,8 +210,9 @@ function H.Build(gui: ScreenGui)
 		ac.Position = narrow and UDim2.new(1, 0, 1, -300) or UDim2.new(1, -290, 1, 0)
 		-- left menu always starts below Roblox's top bar (unscaled ~58px)
 		local top = math.max(92, 66 / s)
-		left.Position = UDim2.fromOffset(14, top)
-		cur.Position = UDim2.fromOffset(14, top + 312)
+		dailyBar.Position = UDim2.fromOffset(14, top)
+		left.Position = UDim2.fromOffset(14, top + 56)
+		cur.Position = UDim2.fromOffset(14, top + 368)
 		-- top-centre boss bar / banner drop below the top-right icon row when the screen is narrow
 		boss.Position = narrow and UDim2.new(0.5, -40, 0, 100) or UDim2.new(0.5, -40, 0, 10)
 		banner.Position = narrow and UDim2.new(0.5, -40, 0, 182) or UDim2.new(0.5, -40, 0, 92)
