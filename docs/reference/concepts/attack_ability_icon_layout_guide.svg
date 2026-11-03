@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="580" viewBox="0 0 1000 580">
+<defs>
+ <linearGradient id="purple" x2="1" y2="1"><stop stop-color="#151044"/><stop offset="1" stop-color="#8248fc"/></linearGradient>
+ <linearGradient id="fire" x2="1" y2="1"><stop stop-color="#ff3b11"/><stop offset=".55" stop-color="#ffae18"/><stop offset="1" stop-color="#fffa98"/></linearGradient>
+ <filter id="shadow"><feDropShadow dx="0" dy="9" stdDeviation="5" flood-opacity=".4"/></filter>
+</defs>
+<rect width="1000" height="580" fill="#f0efff"/>
+<text x="500" y="52" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" font-weight="900" fill="#252154">+1 ANIME HAND SIGNS — ATTACK ICON DESIGN GUIDE</text>
+<text x="500" y="82" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="600" fill="#625c9b">Hand seal PLUS visible technique — original icons, not identical hands</text>
+<g filter="url(#shadow)">
+ <rect x="30" y="105" width="452" height="438" rx="26" fill="url(#purple)" stroke="#251334" stroke-width="8"/>
+ <rect x="518" y="105" width="452" height="438" rx="26" fill="#361526" stroke="#251334" stroke-width="8"/>
+</g>
+<!-- shadow clone: smoky cloud layering -->
+<g fill="#f5f3ff" stroke="#9d9bcc" stroke-width="5">
+ <circle cx="100" cy="386" r="44"/><circle cx="151" cy="366" r="64"/><circle cx="221" cy="398" r="47"/>
+ <circle cx="324" cy="389" r="53"/><circle cx="376" cy="368" r="59"/><circle cx="428" cy="409" r="40"/>
+</g>
+<!-- ninja silhouettes, intentionally original -->
+<g fill="#28214d" stroke="#dfcfff" stroke-width="6">
+ <g transform="translate(100 198) scale(.79)"><circle cx="80" cy="55" r="38"/><rect x="18" y="98" width="124" height="122" rx="40"/><rect x="44" y="48" width="72" height="17" rx="8" fill="#d8d0f2"/></g>
+ <g transform="translate(211 145)"><circle cx="80" cy="55" r="38"/><rect x="18" y="98" width="124" height="122" rx="40"/><rect x="44" y="48" width="72" height="17" rx="8" fill="#d8d0f2"/></g>
+ <g transform="translate(312 204) scale(.75)"><circle cx="80" cy="55" r="38"/><rect x="18" y="98" width="124" height="122" rx="40"/><rect x="44" y="48" width="72" height="17" rx="8" fill="#d8d0f2"/></g>
+</g>
+<!-- stylized hand-seal mnemonic in foreground -->
+<g stroke="#24152f" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" fill="#ffc7a8">
+ <path d="M202 435 Q198 385 211 366 L224 340 L230 287 Q235 276 247 286 L248 343 L255 365 L258 284 Q265 272 276 286 L274 371 L288 383 L285 436Z"/>
+ <path d="M298 435 Q302 385 290 366 L278 340 L275 287 Q270 276 258 286 L260 343 L252 365 L246 284 Q239 272 228 286 L232 371 L218 383 L222 436Z"/>
+</g>
+<text x="256" y="510" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="900" fill="white" stroke="#170d2a" stroke-width="5" paint-order="stroke">SHADOW CLONE</text>
+<!-- fireball + flame trail -->
+<g>
+ <path d="M556 390 Q646 321 736 327 C703 272 772 249 789 196 C794 257 856 253 876 300 C894 337 914 348 932 341 C911 398 871 439 811 439 C750 440 695 414 634 414Z" fill="#ff3c0e" stroke="#350f1a" stroke-width="7"/>
+ <path d="M593 392 Q691 347 765 348 Q751 308 799 263 C813 299 857 294 873 326 C890 368 863 414 805 421 Q727 417 593 392Z" fill="#ff9a18"/>
+ <circle cx="832" cy="355" r="71" fill="url(#fire)" stroke="#ffc85c" stroke-width="8"/>
+ <path d="M827 299 C855 319 860 357 836 387 C859 366 872 329 850 307" fill="#fff9aa"/>
+ <path d="M538 360 l86 -36 -36 54 70 11 -112 19Z" fill="#fa4d16"/>
+</g>
+<g stroke="#24152f" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" fill="#ffc7a8" transform="translate(540 0)">
+ <path d="M71 444 Q60 386 72 365 L86 342 L90 293 Q94 282 106 290 L110 344 L124 376 L129 287 Q137 277 146 293 L145 379 L156 397 L152 445Z"/>
+ <path d="M170 444 Q184 389 171 367 L159 345 L152 295 Q147 285 137 292 L135 344 L124 376 L115 287 Q107 276 98 289 L99 379 L86 397 L90 445Z"/>
+</g>
+<text x="744" y="510" text-anchor="middle" font-family="Arial,sans-serif" font-size="32" font-weight="900" fill="white" stroke="#170d2a" stroke-width="5" paint-order="stroke">FIREBALL</text>
+</svg>
