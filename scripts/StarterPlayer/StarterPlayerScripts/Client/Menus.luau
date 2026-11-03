@@ -91,7 +91,7 @@ function M.Init(c)
 	ctx = c
 	root = U.new("Frame", {Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.6, 0.74),
 		BackgroundColor3 = C(18, 18, 22), BackgroundTransparency = 0.12, Visible = false, Parent = c.Gui, ZIndex = 5})
-	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(900, 640), Parent = root})
+	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(1060, 720), Parent = root})
 	U.corner(6).Parent = root
 	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = root
 	local bodyRim = U.new("Frame", {Name = "BodyRim", Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
@@ -121,7 +121,7 @@ function M.Init(c)
 		local v = cam and cam.ViewportSize or Vector2.new(1280, 720)
 		local compact = current == "Rebirth"
 		if v.X < 900 then root.Size = compact and UDim2.fromScale(0.84, 0.6) or UDim2.fromScale(0.92, 0.86)
-		else root.Size = compact and UDim2.fromScale(0.44, 0.44) or UDim2.fromScale(0.6, 0.74) end
+		else root.Size = compact and UDim2.fromScale(0.46, 0.46) or UDim2.fromScale(0.7, 0.82) end
 	end
 	M.Fit = fit
 	fit()
@@ -348,6 +348,39 @@ local function petViewport(parent: Instance, petId: string, size: UDim2, pos: UD
 	return vp
 end
 M.PetViewport = petViewport
+-- the real lobby egg model (Blender mesh placed by LobbyBuilder) in a ViewportFrame; falls back to the pack's egg icon
+local function eggViewport(parent: Instance, eggId: string, size: UDim2, pos: UDim2): GuiObject
+	local lobby = workspace:FindFirstChild("Lobby")
+	local hatch = lobby and lobby:FindFirstChild("EggHatchery")
+	local src = hatch and hatch:FindFirstChild("Egg_" .. eggId)
+	local mdl = src and src:FindFirstChild("EggModel")
+	if not mdl then
+		return U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon("Egg"), ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = size, Position = pos, ZIndex = 7, Parent = parent})
+	end
+	local vp = U.new("ViewportFrame", {Size = size, Position = pos, AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, Ambient = C(210, 210, 210),
+		LightColor = C(255, 255, 255), LightDirection = Vector3.new(-1, -1, -1), ZIndex = 7, Parent = parent})
+	local m = mdl:Clone()
+	for _, d in m:GetDescendants() do if d:IsA("Script") or d:IsA("LocalScript") then d:Destroy() end end
+	m:PivotTo(CFrame.new())
+	m.Parent = vp
+	local cf, sz = m:GetBoundingBox()
+	local cam = Instance.new("Camera")
+	local dist = math.max(sz.X, sz.Y, sz.Z) * 1.55
+	cam.FieldOfView = 40
+	cam.CFrame = CFrame.lookAt(cf.Position + Vector3.new(dist * 0.25, dist * 0.12, dist), cf.Position)
+	cam.Parent = vp
+	vp.CurrentCamera = cam
+	-- slow showcase spin
+	task.spawn(function()
+		local a = 0
+		while vp.Parent do
+			a += task.wait() * 0.9
+			m:PivotTo(CFrame.Angles(0, a, 0))
+		end
+	end)
+	return vp
+end
 
 builders.Pets = function(parent)
 	list(parent, 10)
@@ -362,9 +395,7 @@ builders.Pets = function(parent)
 		local nameL = label(f, string.upper(egg.Name), UDim2.fromOffset(6, 4), UDim2.new(1, -12, 0, 24))
 		nameL.Font = U.TitleFont
 		if egg.Robux then U.rainbow(nameL) end
-		local eggShape = U.new("Frame", {Size = UDim2.fromOffset(44, 56), Position = UDim2.new(0, 10, 0, 34), BackgroundColor3 = egg.Color, Parent = f})
-		U.corner(26).Parent = eggShape
-		U.stroke(3).Parent = eggShape
+		eggViewport(f, eggId, UDim2.fromOffset(60, 70), UDim2.new(0, 32, 0, 66)) -- the real egg model
 		for k, row in egg.Odds do
 			local def = SC.Pets[row.Pet]
 			label(f, def.Name .. "  " .. row.Chance .. "%", UDim2.new(0, 60, 0, 30 + (k - 1) * 17), UDim2.new(1, -66, 0, 16), SC.RarityColor[def.Rarity] == SC.RarityColor.Secret and C(255, 255, 255) or SC.RarityColor[def.Rarity], Enum.TextXAlignment.Left, 1.5)
@@ -601,6 +632,15 @@ local function clockText(s: number): string
 end
 
 ---------------------------------------------------------------- DAILY REWARDS (7-day week, +1 Anime Eyes layout)
+-- owner reference 2026-11-02: big studded colour cards, huge icons, CLAIMED stamp, green Claim!, pink countdown bars,
+-- a tall rainbow Day 7 card on the right. The whole week fits the panel without scrolling.
+local DAY_COLORS = {C(52, 150, 245), C(245, 158, 30), C(236, 236, 242), C(222, 56, 214), C(70, 206, 250), C(236, 236, 242)}
+local function dayClock(s: number): string
+	s = math.max(0, math.floor(s))
+	local d = s // 86400
+	local hms = string.format("%d:%02d:%02d", (s % 86400) // 3600, (s % 3600) // 60, s % 60)
+	return d > 0 and (d .. "d " .. hms) or hms
+end
 builders.Daily = function(parent)
 	local p = prof() or {}
 	local serverOffset = (p.ServerTime or os.time()) - os.time()
@@ -608,57 +648,93 @@ builders.Daily = function(parent)
 	local streak = p.DailyStreak or 0
 	local week = nextDay == 1 and (math.floor(streak / 7) + (streak > 0 and 1 or 0)) or (math.floor((streak - 1) / 7) + 1)
 	week = math.max(week, 1)
-	local holder = U.new("Frame", {Size = UDim2.new(1, -6, 0, 488), BackgroundTransparency = 1, Parent = parent})
-	local wk = U.title({Text = "WEEK " .. week, Size = UDim2.new(0.3, 0, 0, 34), Position = UDim2.new(0, 4, 0, -2), TextColor3 = C(255, 222, 60), ZIndex = 7, Parent = holder})
+	-- size everything from the body's real width (undo the HUD UIScale and the open/close MotionScale)
+	local k, node = 1, parent :: Instance?
+	while node do for _, us in node:GetChildren() do if us:IsA("UIScale") then k *= us.Scale end end; node = node.Parent; if node and node:IsA("PlayerGui") then break end end
+	local Wd = math.max(420, parent.AbsoluteSize.X / math.max(k, 0.01) - 30)
+	local Hd = math.max(300, parent.AbsoluteSize.Y / math.max(k, 0.01) - 16)
+	local gap = 12
+	local top = 44
+	local bigW = math.floor((Wd - 3 * gap) * 0.29)
+	local cw = math.floor((Wd - 3 * gap - bigW) / 3)
+	local ch = math.floor(math.min(cw * 1.18, (Hd - top - gap) / 2)) -- the whole week fits without scrolling
+	local holder = U.new("Frame", {Size = UDim2.fromOffset(Wd, top + ch * 2 + gap + 6), BackgroundTransparency = 1, Parent = parent})
+	local wk = U.title({Text = "WEEK " .. week, Size = UDim2.fromOffset(200, 34), Position = UDim2.fromOffset(2, 2), TextColor3 = C(255, 222, 60), ZIndex = 7, Parent = holder})
 	wk.TextXAlignment = Enum.TextXAlignment.Left
-	local timers = {}
+	local dp = SC.DevProducts.DailyUnlockAll
+	local ub, ul = U.button({Text = "UNLOCK ALL  R$ " .. dp.Robux, Color = U.TONES.Purple[1], Color2 = U.TONES.Purple[2], Size = UDim2.fromOffset(240, 38),
+		Position = UDim2.new(1, -2, 0, 0), AnchorPoint = Vector2.new(1, 0), Radius = 6, StrokeT = 3, Parent = holder})
+	U.rainbow(ul)
+	ub.MouseButton1Click:Connect(function() act("BuyProduct", "DailyUnlockAll") end)
+	local function leftFor(d: number): number -- seconds until day d can be claimed
+		local nextLeft = math.max(0, (p.LastDaily or 0) + SC.DailyCooldown - (os.time() + serverOffset))
+		return nextLeft + math.max(0, d - nextDay) * SC.DailyCooldown
+	end
 	for d = 1, 7 do
 		local row = SC.DailyWeek[d]
 		local big = d == 7
 		local col, rowI = (d - 1) % 3, (d - 1) // 3
-		local size = big and UDim2.new(0.24, 0, 0, 404) or UDim2.new(0.235, 0, 0, 194)
-		local pos = big and UDim2.new(0.755, 0, 0, 38) or UDim2.new(col * 0.25, 0, 0, 38 + rowI * 210)
-		local f = tileCard(holder, big and C(255, 255, 255) or C(70, 160, 245), size, pos)
-		if big then -- rainbow Day 7 card
+		local size = big and UDim2.fromOffset(bigW, ch * 2 + gap) or UDim2.fromOffset(cw, ch)
+		local pos = big and UDim2.fromOffset(3 * (cw + gap), top) or UDim2.fromOffset(col * (cw + gap), top + rowI * (ch + gap))
+		local f = tileCard(holder, big and Color3.new(1, 1, 1) or DAY_COLORS[d], size, pos)
+		f.Name = "Day" .. d
+		if big then
 			local g = f:FindFirstChildOfClass("UIGradient"); if g then g:Destroy() end
-			local rg = U.new("UIGradient", {Rotation = 35, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 90, 90)), ColorSequenceKeypoint.new(0.25, C(255, 220, 70)),
-				ColorSequenceKeypoint.new(0.5, C(110, 240, 110)), ColorSequenceKeypoint.new(0.75, C(90, 170, 255)), ColorSequenceKeypoint.new(1, C(200, 110, 255))}), Parent = f})
-			local _ = rg
+			U.new("UIGradient", {Rotation = 60, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(60, 235, 80)), ColorSequenceKeypoint.new(0.3, C(40, 210, 240)),
+				ColorSequenceKeypoint.new(0.6, C(110, 70, 250)), ColorSequenceKeypoint.new(1, C(255, 60, 170))}), Parent = f})
 		end
-		U.title({Text = "Day " .. d, Size = UDim2.new(1, -8, 0, big and 46 or 30), Position = UDim2.fromOffset(4, 4), ZIndex = 8, Parent = f})
+		local state = d < nextDay and "Claimed" or (d == nextDay and "Next" or "Later")
+		local dt = U.title({Text = "Day " .. d, Size = UDim2.new(1, -10, 0, big and 52 or 36), Position = UDim2.fromOffset(5, big and 20 or 10), ZIndex = 8, NoGradient = true, Parent = f})
+		if big then dt.TextColor3 = C(255, 236, 80) end
 		local key, txt = rewardInfo(row)
 		if row.Kind == "Pet" then
-			local vp = petViewport(f, row.Pet, UDim2.new(1, -10, 0, 170), UDim2.fromOffset(5, 56)); vp.ZIndex = 8
+			local vp = petViewport(f, row.Pet, UDim2.new(1, -16, 0.52, 0), UDim2.new(0, 8, 0, 80)); vp.ZIndex = 8
+			local nm = U.title({Text = txt, Size = UDim2.new(1, -16, 0, 34), Position = UDim2.new(0, 8, 1, -126), TextColor3 = C(120, 255, 120), NoGradient = true, ZIndex = 8, Parent = f})
+			nm.TextWrapped = true
 		else
-			iconImg(f, key, big and UDim2.fromOffset(150, 150) or UDim2.fromOffset(76, 76), UDim2.new(0.5, 0, 0, big and 140 or 78), 8)
+			local ic = row.Kind == "Hatch" and eggViewport(f, row.Egg, UDim2.new(0.62, 0, 0.46, 0), UDim2.new(0.5, 0, 0.44, 0))
+				or iconImg(f, key, UDim2.new(0.62, 0, 0.44, 0), UDim2.new(0.5, 0, 0.44, 0), 8)
+			ic.ZIndex = 8
+			U.new("UIAspectRatioConstraint", {AspectRatio = 1, Parent = ic})
+			local amt = U.title({Text = txt, Size = UDim2.new(0.92, 0, 0.11, 0), Position = UDim2.new(0.96, 0, 0.68, 0), AnchorPoint = Vector2.new(1, 0.5), ZIndex = 9, NoGradient = true, Parent = f})
+			amt.TextXAlignment = Enum.TextXAlignment.Right
+			if state == "Claimed" then amt.Position = UDim2.new(0.95, 0, 0.88, 0) end
 		end
-		local t = U.title({Text = txt, Size = UDim2.new(1, -8, 0, big and 64 or 24), Position = UDim2.new(0, 4, 0, big and 236 or 112), ZIndex = 8, Parent = f})
-		t.TextWrapped = true
-		local state = d < nextDay and "Claimed" or (d == nextDay and "Next" or "Later")
-		local b, bl = U.button({Text = state == "Claimed" and "CLAIMED" or ("DAY " .. d), Color = U.GREY, Size = UDim2.new(0.86, 0, 0, big and 60 or 40),
-			Position = UDim2.new(0.07, 0, 1, big and -74 or -48), Radius = 6, StrokeT = 3, Parent = f})
-		b.ZIndex = 9
-		bl.Font = U.TitleFont
-		if state == "Next" then
+		local barPos = big and UDim2.new(0.5, 0, 1, -14) or UDim2.new(0.5, 0, 1, -12)
+		local barSize = big and UDim2.new(0.86, 0, 0.1, 0) or UDim2.new(0.86, 0, 0.19, 0)
+		if state == "Claimed" then
+			local dim = U.new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, ZIndex = 10, Parent = f})
+			U.corner(8).Parent = dim
+			U.title({Text = "CLAIMED", Size = UDim2.new(1, 0, 0.26, 0), Position = UDim2.fromScale(0.5, 0.45), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = -14,
+				TextColor3 = C(150, 255, 70), NoGradient = true, Stroke = 5, ZIndex = 11, Parent = f})
+		else
+			local tone = U.TONES.Pink
+			local b, bl = U.button({Text = "", Color = tone[1], Color2 = tone[2], Size = barSize, Position = barPos, AnchorPoint = Vector2.new(0.5, 1), Radius = 6, StrokeT = 3, StudTile = 14, Parent = f})
+			b.ZIndex = 9
+			bl.FontFace = U.FontHeavy
 			local function upd()
-				local left = (p.LastDaily or 0) + SC.DailyCooldown - (os.time() + serverOffset)
-				if left <= 0 then bl.Text = "CLAIM"; U.recolor(b, U.GREEN) else bl.Text = clockText(left); U.recolor(b, U.GREY) end
+				local left = leftFor(d)
+				if state == "Next" and left <= 0 then
+					bl.Text = "Claim!"; U.recolor(b, U.TONES.Lime[1], U.TONES.Lime[2])
+					if not f:FindFirstChild("ReadyRim") then
+						local r = U.new("Frame", {Name = "ReadyRim", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 12, Parent = f})
+						U.corner(8).Parent = r
+						U.new("UIStroke", {Thickness = 5, Color = C(255, 214, 0), Parent = r})
+					end
+				else
+					bl.Text = dayClock(left); U.recolor(b, tone[1], tone[2])
+				end
 			end
-			upd(); table.insert(timers, upd)
-			b.MouseButton1Click:Connect(function()
-				local r = act("ClaimDaily")
-				if r and r.ok then ctx.Celebrate("DAY " .. r.day .. "!", r.what, C(120, 220, 255)) end
-			end)
+			upd(); table.insert(tickers, upd)
+			if state == "Next" then
+				b.MouseButton1Click:Connect(function()
+					if leftFor(d) > 0 then return end
+					local r = act("ClaimDaily")
+					if r and r.ok then ctx.Celebrate("DAY " .. r.day .. "!", r.what, C(120, 220, 255)) end
+				end)
+			end
 		end
 	end
-	for _, f in timers do table.insert(tickers, f) end
-	-- skip: Robux product (Id 0 = not available yet), rainbow price like every Robux item
-	local dp = SC.DevProducts.DailyUnlockAll
-	local ub, ul = U.button({Text = "UNLOCK ALL  R$ " .. dp.Robux, Color = U.GREEN, Size = UDim2.new(0.42, 0, 0, 48), Position = UDim2.new(0.58, 0, 0, -4), Radius = 8, StrokeT = 3, Parent = holder})
-	ub.Position = UDim2.new(1, 0, 0, 450); ub.AnchorPoint = Vector2.new(1, 0); ub.Size = UDim2.new(0.4, 0, 0, 46)
-	ul.Font = U.TitleFont
-	U.rainbow(ul)
-	ub.MouseButton1Click:Connect(function() act("BuyProduct", "DailyUnlockAll") end)
 end
 
 ---------------------------------------------------------------- FREE GIFTS (5 / 15 / 60 min timers, +1 Anime Eyes layout)
@@ -775,7 +851,7 @@ builders.Shop = function(parent)
 			n += 1
 			local f = card(eggs, U.shade(egg.Color, 0.85), n)
 			f.Size = UDim2.new(1, -8, 0, 176)
-			iconImg(f, "Egg", UDim2.fromOffset(120, 120), UDim2.new(0, 78, 0, 96), 7).ImageColor3 = egg.Color:Lerp(Color3.new(1, 1, 1), 0.35)
+			eggViewport(f, eggId, UDim2.fromOffset(140, 140), UDim2.new(0, 78, 0, 96))
 			local t = U.title({Text = egg.Name, Size = UDim2.new(0, 170, 0, 30), Position = UDim2.fromOffset(8, 4), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = f})
 			U.rainbow(t)
 			local tag = U.text({Text = "EXCLUSIVE!", Size = UDim2.fromOffset(110, 24), Position = UDim2.new(1, -12, 0, 6), AnchorPoint = Vector2.new(1, 0), TextColor3 = C(255, 70, 90), Rotation = 6, ZIndex = 8, Parent = f})

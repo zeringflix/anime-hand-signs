@@ -222,6 +222,7 @@ local function buildCliffs()
 			end
 			for z = -HZ, HZ - 1, 20 do
 				local h = h0 + rng:NextInteger(-2, 3)
+				if side == 1 and (z == 30 or z == 50) then continue end -- gap (z 30..70) for the road to Stage 1
 				local x = side * (HX + inner + depth / 2)
 				Blk(g, Vector3.new(depth, h, 20), x, z + 10, -1, (z // 20) % 2 == 0 and PAL.Dirt or PAL.Dirt2)
 				Blk(g, Vector3.new(depth, 1.4, 20), x, z + 10, h - 1, PAL.GrassTop, STUDS)
@@ -234,6 +235,55 @@ local function buildCliffs()
 	for _, pnt in {{-24, 20}, {-24, -20}, {26, -18}, {-130, 30}, {-130, -20}, {146, -20}, {28, -118}, {-28, -118}, {-60, 30}} do -- kept clear of station plots
 		if not inRoad(pnt[1], pnt[2]) then pine(deco, pnt[1], pnt[2], 0, 0.85) end
 	end
+end
+
+---------------------------------------------------------------- road to Stage 1 (owner 2026-11-02: "the lobby should connect to stage 1")
+-- The south cross road leaves the lobby through a gap in the east cliffs, runs east, bends north and enters Stage 1's
+-- open start gate. Local coords (ORIGIN = lobby centre); Stage 1's floor begins at world x = -42.5 (local 517.5).
+local ROAD_END = 517.6
+local STAGE_ROAD = { -- {x0, x1, z0, z1}
+	{140, 452, 44, 66},          -- east from the south cross road
+	{430, 452, -11, 66},         -- bend north toward the stage's centre line
+	{430, ROAD_END, -11, 11},    -- straight into Stage 1
+}
+local function buildStageRoad()
+	local g = group("StageRoad")
+	g:SetAttribute("Note", "Walkable road lobby -> Stage 1 start gate (GameService treats x < -54.5 as lobby).")
+	for i, r in STAGE_ROAD do
+		local w, d = r[2] - r[1], r[4] - r[3]
+		local cx, cz = (r[1] + r[2]) / 2, (r[3] + r[4]) / 2
+		-- body: dirt base, lime shoulders (studded), purple border, lavender checker road
+		Blk(g, Vector3.new(w + 16, 10, d + 16), cx, cz, -10.2, PAL.Dirt2, {Name = "RoadBase"})
+		Blk(g, Vector3.new(w + 16, 2, d + 16), cx, cz, -2, i % 2 == 0 and LIME1 or LIME2, merge(STUDS, {Name = "Shoulder"}))
+		Blk(g, Vector3.new(w + 2.4, 0.3, d + 2.4), cx, cz, 0, PURP, {Name = "RoadEdge"})
+		for x = r[1], r[2] - 0.01, 6 do
+			for z = r[3], r[4] - 0.01, 6 do
+				local sx, sz = math.min(6, r[2] - x), math.min(6, r[4] - z)
+				local tx, tz = x + sx / 2, z + sz / 2
+				local covered = false
+				for j = 1, i - 1 do local q = STAGE_ROAD[j]; if tx > q[1] and tx < q[2] and tz > q[3] and tz < q[4] then covered = true end end
+				if covered then continue end
+				local even = (math.floor((tx + 300) / 6) + math.floor((tz + 300) / 6)) % 2 == 0
+				Blk(g, Vector3.new(sx, 0.36, sz), tx, tz, 0, even and LAV1 or LAV2, merge(STUDS, {Name = "Road"}))
+			end
+		end
+	end
+	-- invisible guard rails along the outer shoulder edges so nobody walks off into the void
+	local INV = {Name = "Rail", Transparency = 1, CastShadow = false, CanQuery = false}
+	Blk(g, Vector3.new(305, 12, 1), 307.5, 75.5, 0, Color3.new(1, 1, 1), INV)   -- north side of the east run
+	Blk(g, Vector3.new(267, 12, 1), 288.5, 35.5, 0, Color3.new(1, 1, 1), INV)   -- south side (stops where the bend starts)
+	Blk(g, Vector3.new(1, 12, 56), 460.5, 47.5, 0, Color3.new(1, 1, 1), INV)     -- outside of the bend (stops at the last straight)
+	Blk(g, Vector3.new(1, 12, 54.5), 421.5, 8.25, 0, Color3.new(1, 1, 1), INV)  -- inside of the bend
+	Blk(g, Vector3.new(96, 12, 1), 469.5, -19.5, 0, Color3.new(1, 1, 1), INV)   -- last straight, south
+	Blk(g, Vector3.new(57, 12, 1), 489, 19.5, 0, Color3.new(1, 1, 1), INV)      -- last straight, north
+	-- lanterns + an arrow sign at the lobby exit
+	for _, pnt in {{200, 70}, {260, 40}, {340, 70}, {420, 40}, {456, 30}, {470, -15}} do lantern(g, pnt[1], pnt[2], true) end
+	local post = Blk(g, Vector3.new(1, 7, 1), 150, 70, 0, PAL.Trunk)
+	local sign = Blk(g, Vector3.new(0.6, 3, 9), 150, 70, 6, C(255, 214, 0), merge(STUDS, {Name = "StageSign"}))
+	local _ = post
+	local sg = Instance.new("SurfaceGui"); sg.Face = Enum.NormalId.Left; sg.LightInfluence = 0; sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud; sg.PixelsPerStud = 30; sg.Parent = sign
+	local t = Instance.new("TextLabel"); t.BackgroundTransparency = 1; t.Size = UDim2.fromScale(1, 1); t.Font = Enum.Font.LuckiestGuy; t.TextScaled = true
+	t.Text = "STAGE 1  >>"; t.TextColor3 = Color3.new(1, 1, 1); local st = Instance.new("UIStroke"); st.Thickness = 3; st.Parent = t; t.Parent = sg
 end
 
 ---------------------------------------------------------------- spawn (in front of the portal, facing north) + ~10 lanterns
@@ -564,6 +614,7 @@ function B.Build(): number
 	root:SetAttribute("BuiltBy", "ServerStorage.Tools.LobbyBuilder v5 (issue #14, owner direction 2026-11-02)")
 	buildArena(); task.wait()
 	buildCliffs(); task.wait()
+	buildStageRoad(); task.wait()
 	buildSpawnAndLamps()
 	buildPortal()
 	buildBoards()

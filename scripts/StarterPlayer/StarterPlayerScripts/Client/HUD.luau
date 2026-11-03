@@ -61,13 +61,16 @@ function H.Build(gui: ScreenGui)
 	E.RebirthTag = U.text({Text = "0%", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 0), Size = UDim2.fromOffset(60, 24), TextColor3 = C(130, 255, 120), Stroke = 2.5, Rotation = 10, ZIndex = 4, Parent = E.Grid.Rebirth})
 
 	---------------------------------------------------------------- counters under the grid (rebirths, trophies)
-	local cur = U.new("Frame", {Name = "Counters", Position = UDim2.fromOffset(14, 404), Size = UDim2.fromOffset(240, 110), BackgroundTransparency = 1, Parent = gui})
+	-- owner 2026-11-02: rebirths + trophies (wins) counters were way too small -> big icons + big numbers
+	local cur = U.new("Frame", {Name = "Counters", Position = UDim2.fromOffset(14, 404), Size = UDim2.fromOffset(330, 176), BackgroundTransparency = 1, Parent = gui})
 	local function row(y: number, icon: string, color: Color3)
-		img({Icon = icon, Position = UDim2.fromOffset(0, y - 2), Size = UDim2.fromOffset(50, 50), Parent = cur})
-		return U.text({Text = "0", Position = UDim2.fromOffset(56, y + 4), Size = UDim2.fromOffset(180, 40), TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5, Parent = cur})
+		img({Icon = icon, Position = UDim2.fromOffset(-4, y - 4), Size = UDim2.fromOffset(80, 80), ZIndex = 2, Parent = cur})
+		local t = U.text({Text = "0", Position = UDim2.fromOffset(80, y + 6), Size = UDim2.fromOffset(250, 64), TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Stroke = 5, Parent = cur})
+		t.FontFace = U.FontHeavy
+		return t
 	end
-	E.RebirthCount = row(0, "Rebirth", C(120, 255, 110))
-	E.Trophies = row(54, "Trophy", C(120, 255, 110))
+	E.RebirthCount = row(0, "Rebirth", C(255, 120, 230))
+	E.Trophies = row(86, "Trophy", C(255, 214, 60))
 
 	---------------------------------------------------------------- top-right icon row (reference: Codes, Daily Rewards, Invite, Settings; + Free Gifts)
 	-- owner 2026-11-02: no Places/Stages or Upgrades buttons (stages = WORLDS portal in the lobby)

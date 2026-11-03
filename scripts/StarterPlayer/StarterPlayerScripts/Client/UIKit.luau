@@ -81,14 +81,16 @@ U.TONES = {
 
 -- raised studs (owner: "studify the ui"): the Studs UI Pack 2 stud texture, clearly visible, fading slightly
 -- towards the bottom like the pack. Old callers pass transparencies tuned for the previous texture; clamp them.
-U.STUDS = "rbxassetid://89333738374139" -- Studs UI Pack 2 (owner's pack) raised stud texture
-U.STUDS_OLD = Assets.Studs
+-- owner reference 2026-11-02 (Daily Rewards screenshot): BIG rounded square studs with a lit top edge and soft shadow.
+-- Original texture (vfx/ui_studs.py), one stud per tile; callers' old tile sizes are scaled up ~1.35x (min 30 px).
+U.STUDS = "rbxassetid://84866711570025"
+U.STUDS_PACK = "rbxassetid://89333738374139" -- Studs UI Pack 2 texture (kept for reference)
 function U.studs(parent: Instance, transp: number?, tile: number?): ImageLabel
+	local px = math.max(30, math.floor((tile or 34) * 1.35))
 	local s = U.new("ImageLabel", {Name = "Studs", BackgroundTransparency = 1, Image = U.STUDS, ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(tile or 30, tile or 30), ImageTransparency = math.clamp(transp or 0.2, 0.18, 0.6), Size = UDim2.fromScale(1, 1), Parent = parent})
+		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp((transp or 0.1) * 0.5, 0, 0.35), Size = UDim2.fromScale(1, 1), Parent = parent})
 	if parent:IsA("GuiObject") then s.ZIndex = parent.ZIndex end
 	U.corner(8).Parent = s
-	U.new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new(0, 0.45), Parent = s})
 	return s
 end
 
@@ -251,7 +253,8 @@ function U.intro(container: Instance, delay0: number?)
 	local function collect(parent: Instance, depth: number)
 		for _, c in parent:GetChildren() do
 			if c:IsA("GuiObject") and c.Visible then
-				local holder = c.BackgroundTransparency >= 0.99 and (c:FindFirstChildOfClass("UIGridLayout") or c:FindFirstChildOfClass("UIListLayout"))
+				local holder = c.BackgroundTransparency >= 0.99 and (c:FindFirstChildOfClass("UIGridLayout") or c:FindFirstChildOfClass("UIListLayout")
+					or (c.ClassName == "Frame" and #c:GetChildren() > 2))
 				if holder and depth < 2 then collect(c, depth + 1) else table.insert(items, c) end
 			end
 		end
