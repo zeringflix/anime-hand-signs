@@ -47,7 +47,11 @@ local PAL = {
 local FONT = Enum.Font.FredokaOne
 
 local root: Model
-local function W(x: number, z: number, y: number?): Vector3 return ORIGIN + Vector3.new(x, y or 0, z) end
+-- MX = -1 mirrors the build frame across its north-south axis (owner 2026-11-03 "flip it"): from the spawn facing Stage 1,
+-- training is on the player's LEFT and eggs + sign showcase on the RIGHT. Every placement goes through W(), so all
+-- layout tables below stay in the original (unmirrored) coordinates.
+local MX = -1
+local function W(x: number, z: number, y: number?): Vector3 return ORIGIN + Vector3.new(MX * x, y or 0, z) end
 local function group(name: string, parent: Instance?): Model
 	local m = Instance.new("Model"); m.Name = name; m.Parent = parent or root; return m
 end
@@ -528,7 +532,7 @@ local function buildShowcase()
 		local s = Config.HandSigns[id]
 		local back = i > 7
 		local k = back and i - 8 or i - 1
-		local x, z = x0 + k * dx, back and zB or zF
+		local x, z = x0 + (MX == 1 and k or 6 - k) * dx, back and zB or zF -- Tiger -> Dragon reads left to right from the front
 		local top = back and 8.2 or 0.6
 		local m = group("Pad_" .. id, g)
 		m:SetAttribute("SignId", id)
@@ -633,7 +637,7 @@ function B.Build(): number
 	root.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	root.WorldPivot = CFrame.new(ORIGIN)
 	root:PivotTo(CFrame.new(ORIGIN) * CFrame.Angles(0, YAW, 0)) -- build-north -> world +X (Stage 1)
-	root:SetAttribute("Layout", "v8 owner sketch: training +Z side, eggs/signs -Z side, Stage 1 at +X")
+	root:SetAttribute("Layout", "v8 owner sketch, flipped: from spawn facing Stage 1 (+X), training on the left, eggs/signs on the right")
 	-- world-space attributes computed in the build frame must follow the turn
 	for _, core in root:GetDescendants() do
 		if core:IsA("BasePart") and core.Name == "FxCore" then
