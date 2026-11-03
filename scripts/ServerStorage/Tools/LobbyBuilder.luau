@@ -524,7 +524,7 @@ local function buildShowcase()
 	local g = group("SignShowcase")
 	g:SetAttribute("Note", "Pad colours/text are per-player, set by the client Lobby module from server state.")
 	local x0, dx = -112, 12
-	local zF, zB = -30, -48
+	local zF, zB = 14, -4 -- owner 2026-11-03 'flip the egg and hand sign placements': showcase mid-field, eggs by Stage 1
 	Blk(g, Vector3.new(7 * dx + 6, 1, 14), x0 + 3 * dx, zF, -0.4, PAL.Stone, {Name = "FrontPlatform"})
 	Blk(g, Vector3.new(7 * dx + 6, 8.6, 14), x0 + 3 * dx, zB, -0.4, PAL.Stone2, {Name = "BackPlatform"})
 	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, zF - 7.4, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
@@ -559,12 +559,13 @@ end
 ---------------------------------------------------------------- eggs (north-west, along the north road): 4 eggs + Boss Shop / Fuse placeholders
 local function buildEggs()
 	local g = group("EggHatchery")
-	Blk(g, Vector3.new(84, 0.4, 18), -78, 4, 0.02, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
-	for _, z in {-4.6, 12.6} do Blk(g, Vector3.new(84, 0.45, 1.2), -78, z, 0.02, PAL.LimeEdge) end
+	local EZ = -38 -- egg row (swapped with the sign showcase, owner 2026-11-03)
+	Blk(g, Vector3.new(84, 0.4, 18), -78, EZ, 0.02, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
+	for _, z in {EZ - 8.6, EZ + 8.6} do Blk(g, Vector3.new(84, 0.45, 1.2), -78, z, 0.02, PAL.LimeEdge) end
 	local eggAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Eggs")
 	for i, eggId in SC.EggOrder do
 		local egg = SC.Eggs[eggId]
-		local x, z = -48 - (i - 1) * 20, 4
+		local x, z = -48 - (i - 1) * 20, EZ
 		local m = group("Egg_" .. eggId, g)
 		local glowCol = egg.Color:Lerp(Color3.new(1, 1, 1), 0.2)
 		Disc(m, 12, 0.8, x, z, 1.1, PAL.Stone)
