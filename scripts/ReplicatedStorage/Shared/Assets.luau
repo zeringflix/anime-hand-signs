@@ -33,9 +33,65 @@ Assets.JutsuIcon = {
 	chidori = "Lightning", lightningburst = "Lightning", senbon = "Lightning", kirin = "Lightning", gust = "Wind", rasenshuriken = "Wind",
 	earthwall = "Rock", waterwall = "Water", waterdragon = "Water", blackflame = "DarkFlame", susanoo = "Shield", planetary = "Planet", beastbomb = "Bomb",
 }
+-- owner 2026-11-03 "use the outlined logos": the SAME Free Icon Pack icons in their '1st Outline' variant (thick dark border).
+-- Sources: assets/icons/pack_outline. Assets.Icon() prefers these; Assets.Icons keeps the plain versions.
+Assets.IconsOutline = {
+	Aura = "rbxassetid://117685047456280",
+	Bomb = "rbxassetid://78900466591532",
+	Boost = "rbxassetid://84437840093574",
+	Chakra = "rbxassetid://130808355210760",
+	Check = "rbxassetid://109709201147637",
+	CheckButton = "rbxassetid://70538374365576",
+	Chest = "rbxassetid://87901245047658",
+	Clock = "rbxassetid://108275438988305",
+	Close = "rbxassetid://87534519706404",
+	Codes = "rbxassetid://94729247285884",
+	Coin = "rbxassetid://71237867324669",
+	Crown = "rbxassetid://81587435624968",
+	Daily = "rbxassetid://125486475940003",
+	DarkFlame = "rbxassetid://125528177641907",
+	Egg = "rbxassetid://122249053640279",
+	Fire = "rbxassetid://128236498507718",
+	Fist = "rbxassetid://73296684157524",
+	Gift = "rbxassetid://135518706814532",
+	GiftBlue = "rbxassetid://90023304835235",
+	Invite = "rbxassetid://84168204761745",
+	Lightning = "rbxassetid://106434067357849",
+	Lock = "rbxassetid://138252538883183",
+	Medal = "rbxassetid://118619928174946",
+	MusicOn = "rbxassetid://113126002762095",
+	Pets = "rbxassetid://138064522385986",
+	Places = "rbxassetid://116292673796346",
+	Planet = "rbxassetid://115236931052571",
+	Quests = "rbxassetid://70470113635541",
+	Rebirth = "rbxassetid://140306784641183",
+	Robux = "rbxassetid://138507121748140",
+	Rock = "rbxassetid://114049573019291",
+	Scroll = "rbxassetid://115116930227764",
+	Settings = "rbxassetid://113519052228599",
+	Shadow = "rbxassetid://97220228688173",
+	Shield = "rbxassetid://117075398519377",
+	Shop = "rbxassetid://93668277165991",
+	Skip = "rbxassetid://77631203150300",
+	Smoke = "rbxassetid://118602494464044",
+	Snake = "rbxassetid://90780497717755",
+	Sound = "rbxassetid://128560248221770",
+	SoundOff = "rbxassetid://93991092938550",
+	SoundOn = "rbxassetid://128560248221770",
+	Star = "rbxassetid://70633382162377",
+	Stats = "rbxassetid://74329087843732",
+	Swirl = "rbxassetid://114475034524844",
+	Teleporter = "rbxassetid://133216877590178",
+	Trophy = "rbxassetid://127669762542069",
+	TrophyBoost = "rbxassetid://80565613148637",
+	Upgrades = "rbxassetid://77763779703828",
+	Verified = "rbxassetid://80679546706033",
+	Water = "rbxassetid://122484528701286",
+	Wind = "rbxassetid://108469459484231",
+}
 function Assets.Icon(name: string?): string
 	if name == "HandSign" then return Assets.SignIcons and Assets.SignIcons.Tiger or "" end -- our own hand art
-	return (name and Assets.Icons[name]) or ""
+	return (name and (Assets.IconsOutline[name] or Assets.Icons[name])) or ""
 end
 -- Hand-sign artwork: cartoon version (owner 2026-11-02 "more cartoonified"): the approved hands-only sheet run through
 -- tools/cartoonify_hands.py (cel-shaded skin, navy ninja sleeves, thick outline) -> assets/icons/hand-signs-cartoon.

@@ -29,12 +29,13 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local B = {}
 
--- lobby-local frame = world axes (north = -Z). The lobby is its own arena; the WORLDS portal teleports to Stage 1.
--- owner 2026-11-02 ("stage one should be right in front of the lobby, like +1 Anime Eyes"): the lobby's east edge
--- (local x = 150) is flush with Stage 1's start wall (world x = -46.5), and the south cross road (local z 44..66) lines
--- up with Stage 1's centre line (world z = 0), so players walk off the lobby floor straight through the STAGE 1 gate.
-local ORIGIN = Vector3.new(-196.5, 0, -55)
-local HX, HZ = 150, 130 -- floor half extents (expanded: room for 13 training zones + egg plaza)
+-- v8 layout = owner sketch 2026-11-03 (docs/reference/owner_lobby_layout_sketch.jpg), about the +1 Anime Eyes lobby size.
+-- Built in a BUILD frame (spawn at the south edge facing north, Stage 1 entrance at the north edge, training field east,
+-- eggs + sign showcase west), then the whole model is turned -90 deg about ORIGIN so build-north = world +X: the north
+-- edge (build z = -HZ) lands flush on Stage 1's start wall (world x = -46.5) with the main road on Stage 1's centre line.
+local ORIGIN = Vector3.new(-126.5, 0, 0)
+local YAW = -math.pi / 2
+local HX, HZ = 120, 80 -- 240 x 160 studs
 local C = Color3.fromRGB
 local PAL = {
 	Lav1 = C(196, 182, 238), Lav2 = C(183, 167, 228), Path = C(234, 228, 252), PathEdge = Color3.new(1, 1, 1),
@@ -168,10 +169,10 @@ local LIME1, LIME2 = C(150, 224, 62), C(138, 212, 54)
 
 ---------------------------------------------------------------- arena: lime lawn + lavender checker roads with purple borders
 local ROADS = { -- {x0, x1, z0, z1}
-	{-15, 15, -125, 125},      -- main road (spawn -> north landmark)
-	{-140, 150, 44, 66},       -- south cross road -> straight into the STAGE 1 gate
-	{-140, 140, -56, -34},     -- north cross road
-	{-34, 34, 78, 128},        -- spawn plaza in front of the WORLDS portal
+	{-12, 12, -80, 80},        -- main road: spawn -> straight through the STAGE 1 gate (north edge)
+	{-118, 118, 24, 36},       -- cross road: training field (east) <-> eggs + signs (west)
+	{-30, 30, 40, 72},         -- spawn plaza in front of the WORLDS portal
+	{-118, -36, -18, -12},     -- west divider path between the eggs (south) and the sign showcase (north)
 }
 local function inRoad(x: number, z: number): boolean
 	for _, r in ROADS do if x > r[1] and x < r[2] and z > r[3] and z < r[4] then return true end end
@@ -218,7 +219,7 @@ local function buildCliffs()
 		for _, side in {-1, 1} do
 			for x = -HX - inner - depth, HX + inner + depth - 1, 20 do
 				local h = h0 + rng:NextInteger(-2, 3)
-				if side == 1 and x + 20 > HX then continue end -- south-east corner would overlap Stage 1's cliffs
+				if side == -1 and x + 20 > -82 and x < 82 then continue end -- north edge: Stage 1's start wall closes the lobby here
 				local z = side * (HZ + inner + depth / 2)
 				Blk(g, Vector3.new(20, h, depth), x + 10, z, -1, (x // 20) % 2 == 0 and PAL.Dirt or PAL.Dirt2)
 				Blk(g, Vector3.new(20, 1.4, depth), x + 10, z, h - 1, PAL.GrassTop, STUDS)
@@ -226,7 +227,7 @@ local function buildCliffs()
 			end
 			for z = -HZ, HZ - 1, 20 do
 				local h = h0 + rng:NextInteger(-2, 3)
-				if side == 1 and z > -50 then continue end -- east edge: Stage 1's start wall (with the gate) closes the lobby here
+
 				local x = side * (HX + inner + depth / 2)
 				Blk(g, Vector3.new(depth, h, 20), x, z + 10, -1, (z // 20) % 2 == 0 and PAL.Dirt or PAL.Dirt2)
 				Blk(g, Vector3.new(depth, 1.4, 20), x, z + 10, h - 1, PAL.GrassTop, STUDS)
@@ -235,10 +236,10 @@ local function buildCliffs()
 		end
 	end
 	-- plug between the last east cliff and Stage 1's start wall (world z -88..-80)
-	Blk(g, Vector3.new(4, 30, 8), 152, -29, -1, PAL.Dirt, {Name = "EdgePlug"})
+
 	-- a few small pines / bushes on the lawns (never on a road)
 	local deco = group("LawnTrees", g)
-	for _, pnt in {{-24, 20}, {-24, -20}, {26, -18}, {-130, 30}, {-130, -20}, {146, -20}, {28, -118}, {-28, -118}, {-60, 30}} do -- kept clear of station plots
+	for _, pnt in {{-24, 50}, {24, -60}, {-24, -60}, {-110, 60}, {112, 58}, {-110, -70}} do -- kept clear of station plots
 		if not inRoad(pnt[1], pnt[2]) then pine(deco, pnt[1], pnt[2], 0, 0.85) end
 	end
 end
@@ -294,12 +295,12 @@ end
 
 ---------------------------------------------------------------- spawn (in front of the portal, facing north) + ~10 lanterns
 local function buildSpawnAndLamps()
-	local pos = W(0, 96, 1.0)
+	local pos = W(0, 56, 1.0)
 	P({Name = "LobbySpawn", Size = Vector3.new(10, 1, 10), CFrame = CFrame.lookAt(pos, pos - Vector3.zAxis),
 		Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false})
 	local g = group("Lanterns")
 	-- 10 lanterns: plaza corners, road crossings and lawn edges (owner: "place around 10 around the lobby")
-	for i, pnt in {{-38, 84}, {38, 84}, {-19, 69}, {19, 69}, {-19, -31}, {19, -31}, {-60, 69}, {60, 69}, {-60, -59}, {60, -59}} do
+	for i, pnt in {{-34, 40}, {34, 40}, {-16, 20}, {16, 20}, {-16, -30}, {16, -30}, {-16, -74}, {16, -74}, {-36, 30}, {36, 30}} do
 		lantern(g, pnt[1], pnt[2], i <= 6)
 	end
 end
@@ -307,7 +308,7 @@ end
 ---------------------------------------------------------------- WORLDS portal at the back (south edge), ring facing north
 local function buildPortal()
 	local g = group("WorldsPortal")
-	local pz = 118
+	local pz = 74
 	for _, x in {-18, 18} do
 		Blk(g, Vector3.new(8, 2, 8), x, pz, 0.3, PAL.Stone2)
 		Blk(g, Vector3.new(6, 34, 6), x, pz, 2.3, PAL.Stone)
@@ -343,7 +344,7 @@ end
 local function buildBoards()
 	local g = group("Leaderboards")
 	for i, d in {{"LifetimeHandSigns", "HAND SIGNS"}, {"Trophies", "TROPHIES"}, {"Stage", "STAGE"}} do
-		local x, z = -36 - i * 18, 116
+		local x, z = -46 - i * 18, 72
 		local m = group("Board_" .. d[1], g)
 		m:SetAttribute("BoardKey", d[1])
 		local pos = W(x, z, 9)
@@ -363,7 +364,7 @@ end
 ---------------------------------------------------------------- special pet (Robux): Nine-Tail Spirit Fox pedestal
 local function buildSpecialPet()
 	local g = group("SpecialPet")
-	local x, z = 58, 100
+	local x, z = 44, 56
 	Disc(g, 16, 1.4, x, z, 1.7, PAL.Stone)
 	Disc(g, 13, 1, x, z, 2.4, C(255, 110, 40), {Material = Enum.Material.Neon, Transparency = 0.25})
 	for _, o in {{-6, -6}, {-6, 6}, {6, -6}, {6, 6}} do
@@ -396,7 +397,7 @@ end
 local function buildBossRift()
 	local g = group("BossRift")
 	g:SetAttribute("Placeholder", "Visual only — no timed boss backend; no prompt.")
-	local x, z = -80, 5
+	local x, z = -44, 50
 	Disc(g, 18, 0.6, x, z, 0.75, C(70, 30, 40))
 	local c = W(x, z, 14)
 	P({Size = Vector3.new(9, 9, 9), CFrame = CFrame.new(c) * CFrame.Angles(0, 0, math.rad(45)) * CFrame.Angles(math.rad(45), 0, 0), Color = C(70, 20, 90), Material = Enum.Material.Neon, Transparency = 0.15, CanCollide = false, Parent = g})
@@ -424,11 +425,11 @@ end
 
 ---------------------------------------------------------------- training field: 13 Blender stations (east half)
 -- {x, z, yaw}: yaw turns the Blender front (Roblox +Z) toward the nearest cross road (0 = faces +Z / the spawn side)
-local STATION_SLOTS = {
-	{40, 28, 0}, {70, 28, 0}, {100, 28, 0}, {130, 28, 0},           -- near the spawn, face the south cross road: X2 X3 X5 X7
-	{40, 2, 180}, {70, 2, 180}, {100, 2, 180}, {130, 2, 180},       -- face the north cross road: X8$ X10 X12 X20
-	{40, -72, 0}, {70, -72, 0}, {100, -72, 0}, {130, -72, 0},       -- beyond the north cross road, facing it: X25$ X35 X40 X50$
-	{85, -104, 0},                                                  -- X250$ (big) at the far end
+local STATION_SLOTS = { -- one clustered field east of the main road; beginners nearest the spawn, best deepest
+	{42, 12, 0}, {64, 12, 0}, {86, 12, 0}, {108, 12, 0},
+	{42, -12, 0}, {64, -12, 0}, {86, -12, 0}, {108, -12, 0},
+	{42, -36, 0}, {64, -36, 0}, {86, -36, 0}, {108, -36, 0},
+	{75, -62, 0},                                             -- X250 (big) at the far end
 }
 -- beam tip height above the lobby floor: beginners short, legendary stations taller (issue #14 review: no sky pillars)
 local BEAM_TIP = {16, 16.5, 17, 21, 24, 23, 25, 25, 23, 26, 26, 27, 31}
@@ -495,10 +496,10 @@ local function buildStations()
 		local bb: BillboardGui
 		if nameAt then -- label sits at the top of the beam (BillboardGui parented to the NameAnchor attachment)
 			bb = Instance.new("BillboardGui")
-			bb.Name = "Card"; bb.Size = UDim2.fromScale(13, 4.9); bb.MaxDistance = 170; bb.LightInfluence = 0
+			bb.Name = "Card"; bb.Size = UDim2.fromScale(10, 3.8); bb.MaxDistance = 170; bb.LightInfluence = 0
 			bb.Parent = nameAt
 		else
-			bb = billboard(anchor(m, x, z, top + 4), Vector2.new(13, 4.9), 0, 170, "Card")
+			bb = billboard(anchor(m, x, z, top + 4), Vector2.new(10, 3.8), 0, 170, "Card")
 		end
 		local t = text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.55), st.Color, 4, "Mult"); t.Font = Enum.Font.LuckiestGuy
 		if st.Pass then
@@ -518,8 +519,8 @@ end
 local function buildShowcase()
 	local g = group("SignShowcase")
 	g:SetAttribute("Note", "Pad colours/text are per-player, set by the client Lobby module from server state.")
-	local x0, dx = -128, 15
-	local zF, zB = 74, 92
+	local x0, dx = -112, 12
+	local zF, zB = -30, -48
 	Blk(g, Vector3.new(7 * dx + 6, 1, 14), x0 + 3 * dx, zF, -0.4, PAL.Stone, {Name = "FrontPlatform"})
 	Blk(g, Vector3.new(7 * dx + 6, 8.6, 14), x0 + 3 * dx, zB, -0.4, PAL.Stone2, {Name = "BackPlatform"})
 	Blk(g, Vector3.new(7 * dx + 6, 0.6, 1), x0 + 3 * dx, zF - 7.4, 0.4, PAL.Gold, {Material = Enum.Material.Neon})
@@ -531,7 +532,7 @@ local function buildShowcase()
 		local top = back and 8.2 or 0.6
 		local m = group("Pad_" .. id, g)
 		m:SetAttribute("SignId", id)
-		local pad = Blk(m, Vector3.new(10, 0.5, 9), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
+		local pad = Blk(m, Vector3.new(9, 0.5, 9), x, z, top, C(220, 60, 60), {Name = "Pad", Material = Enum.Material.Neon, Transparency = 0.1})
 		prompt(pad, "Buy", s.Name, {LobbyAction = "Sign", SignId = id})
 		-- floating cartoon hand art (no tile / frame), like the reference's floating eyes
 		local iconId = Assets.SignIcons and Assets.SignIcons[id]
@@ -554,12 +555,12 @@ end
 ---------------------------------------------------------------- eggs (north-west, along the north road): 4 eggs + Boss Shop / Fuse placeholders
 local function buildEggs()
 	local g = group("EggHatchery")
-	Blk(g, Vector3.new(118, 0.4, 18), -84, -74, 0.02, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
-	for _, z in {-83.4, -64.6} do Blk(g, Vector3.new(118, 0.45, 1.2), -84, z, 0.02, PAL.LimeEdge) end
+	Blk(g, Vector3.new(84, 0.4, 18), -78, 4, 0.02, PAL.Path, merge(STUDS, {Name = "EggWalk"}))
+	for _, z in {-4.6, 12.6} do Blk(g, Vector3.new(84, 0.45, 1.2), -78, z, 0.02, PAL.LimeEdge) end
 	local eggAssets = ServerStorage:FindFirstChild("LobbyAssets") and ServerStorage.LobbyAssets:FindFirstChild("Eggs")
 	for i, eggId in SC.EggOrder do
 		local egg = SC.Eggs[eggId]
-		local x, z = -36 - (i - 1) * 26, -74
+		local x, z = -48 - (i - 1) * 20, 4
 		local m = group("Egg_" .. eggId, g)
 		local glowCol = egg.Color:Lerp(Color3.new(1, 1, 1), 0.2)
 		Disc(m, 12, 0.8, x, z, 1.1, PAL.Stone)
@@ -593,22 +594,22 @@ local function buildEggs()
 		local m = group(name, g)
 		m:SetAttribute("Placeholder", "Visual only — backend not built; no prompt or remote is exposed.")
 		build(m)
-		local bb = billboard(anchor(m, x, -104, 15), Vector2.new(14, 4.6), 0, 150, "Card")
+		local bb = billboard(anchor(m, x, 50, 15), Vector2.new(14, 4.6), 0, 150, "Card")
 		local t = text(bb, title, UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.58), C(255, 150, 230), 4); t.Font = Enum.Font.LuckiestGuy
 		text(bb, "COMING SOON", UDim2.fromScale(0.15, 0.6), UDim2.fromScale(0.7, 0.38), C(255, 120, 120), 3)
 	end
-	placeholder("BossShop", -112, "BOSS SHOP", function(m)
-		Blk(m, Vector3.new(12, 1, 8), -112, -104, 0.3, PAL.Stone)
-		Blk(m, Vector3.new(10, 4, 4), -112, -106, 1.3, C(200, 50, 46))
-		for _, sx in {-5, 5} do Blk(m, Vector3.new(0.9, 9, 0.9), -112 + sx, -102, 1.3, PAL.Ink) end
-		Blk(m, Vector3.new(13, 1.2, 7), -112, -104, 10.3, C(200, 50, 46)); Blk(m, Vector3.new(11, 1, 5), -112, -104, 11.5, PAL.Ink)
+	placeholder("BossShop", -104, "BOSS SHOP", function(m)
+		Blk(m, Vector3.new(12, 1, 8), -104, 50, 0.3, PAL.Stone)
+		Blk(m, Vector3.new(10, 4, 4), -104, 48, 1.3, C(200, 50, 46))
+		for _, sx in {-5, 5} do Blk(m, Vector3.new(0.9, 9, 0.9), -104 + sx, 52, 1.3, PAL.Ink) end
+		Blk(m, Vector3.new(13, 1.2, 7), -104, 50, 10.3, C(200, 50, 46)); Blk(m, Vector3.new(11, 1, 5), -104, 50, 11.5, PAL.Ink)
 	end)
-	placeholder("FuseMachine", -84, "FUSE MACHINE", function(m)
-		Blk(m, Vector3.new(10, 1.4, 10), -84, -104, 0.3, PAL.Stone)
-		for _, o in {{-4, -4}, {-4, 4}, {4, -4}, {4, 4}} do Blk(m, Vector3.new(1.4, 3, 1.4), -84 + o[1], -104 + o[2], 1.7, C(240, 240, 250)) end
-		Blk(m, Vector3.new(5, 6, 5), -84, -104, 1.7, C(110, 60, 200), {Material = Enum.Material.Glass, Transparency = 0.35})
-		P({Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3), CFrame = CFrame.new(W(-84, -104, 4.7)), Color = C(220, 120, 255), Material = Enum.Material.Neon, CanCollide = false, Parent = m})
-		Blk(m, Vector3.new(6, 1, 6), -84, -104, 7.7, C(240, 240, 250))
+	placeholder("FuseMachine", -76, "FUSE MACHINE", function(m)
+		Blk(m, Vector3.new(10, 1.4, 10), -76, 50, 0.3, PAL.Stone)
+		for _, o in {{-4, -4}, {-4, 4}, {4, -4}, {4, 4}} do Blk(m, Vector3.new(1.4, 3, 1.4), -76 + o[1], 50 + o[2], 1.7, C(240, 240, 250)) end
+		Blk(m, Vector3.new(5, 6, 5), -76, 50, 1.7, C(110, 60, 200), {Material = Enum.Material.Glass, Transparency = 0.35})
+		P({Shape = Enum.PartType.Ball, Size = Vector3.new(3, 3, 3), CFrame = CFrame.new(W(-76, 50, 4.7)), Color = C(220, 120, 255), Material = Enum.Material.Neon, CanCollide = false, Parent = m})
+		Blk(m, Vector3.new(6, 1, 6), -76, 50, 7.7, C(240, 240, 250))
 	end)
 end
 
@@ -625,16 +626,26 @@ function B.Build(): number
 	buildBoards()
 	buildSpecialPet()
 	buildBossRift()
-	buildLandmark(); task.wait()
+	task.wait()
 	buildStations(); task.wait()
 	buildShowcase()
 	buildEggs(); task.wait()
 	root.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	root.WorldPivot = CFrame.new(ORIGIN)
+	root:PivotTo(CFrame.new(ORIGIN) * CFrame.Angles(0, YAW, 0)) -- build-north -> world +X (Stage 1)
+	root:SetAttribute("Layout", "v8 owner sketch: training +Z side, eggs/signs -Z side, Stage 1 at +X")
+	-- world-space attributes computed in the build frame must follow the turn
+	for _, core in root:GetDescendants() do
+		if core:IsA("BasePart") and core.Name == "FxCore" then
+			local zone = core.Parent and core.Parent:FindFirstChild("Zone") :: BasePart?
+			if zone then core:SetAttribute("ZoneX", zone.Position.X); core:SetAttribute("ZoneZ", zone.Position.Z) end
+		end
+	end
 	root.Parent = workspace
 	local sp = workspace:FindFirstChild("SpawnLocation") :: SpawnLocation?
-	if sp then
-		sp.CFrame = CFrame.lookAt(W(0, 96, 0.6), W(0, 0, 0.6)); sp.Transparency = 1; sp.CanCollide = false
+	local ls = root:FindFirstChild("LobbySpawn") :: BasePart?
+	if sp and ls then
+		sp.CFrame = ls.CFrame; sp.Transparency = 1; sp.CanCollide = false
 		local d = sp:FindFirstChildOfClass("Decal"); if d then d.Transparency = 1 end
 	end
 	local n = 0
