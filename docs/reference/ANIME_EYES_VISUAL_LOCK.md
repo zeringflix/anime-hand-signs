@@ -77,3 +77,10 @@ Keep all 50 stages, saved progress, existing stage progression/kill gates, actua
 
 ## PASS/FAIL acceptance
 PASS means readable bright Roblox simulator lobby very close to the +1 Anime Eyes screenshot layout and camera proportions, one clustered field of 13 stations using actual Blender MeshParts, sensible short beams and titles, original custom effects, recognizable skill icons, a proportionate Stage 1 entrance, clean distinct stages 1–3, NO pink stage-screen overlay, all 50 saved stages and functionality preserved. FAIL means any one of these is missing, especially making huge changes without first showing the two-stage pilot. Claude should not spend another development cycle guessing the art direction.
+
+## OWNER LOBBY LAYOUT SKETCH (2026-11-03, overrides earlier layouts)
+`docs/reference/owner_lobby_layout_sketch.jpg`. The lobby is one rectangle, about the size of the +1 Anime Eyes lobby:
+- **Left side:** the training field, with the stations in a 2-column grid.
+- **Centre:** open main area.
+- **Right side:** eggs on top and the hand-sign showcase below, with a divider between them.
+- **Bottom edge:** the Stage 1 entrance, straight down from the middle.
