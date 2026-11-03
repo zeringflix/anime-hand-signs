@@ -268,7 +268,7 @@ function U.intro(container: Instance, delay0: number?)
 		if isCard then
 			dark = U.new("Frame", {Name = "IntroDark", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, ZIndex = 50, Parent = it})
 			U.corner(6).Parent = dark
-			if it.AbsoluteSize.X < 320 then U.hover(it, {Scale = 1.07, Tilt = 2.5}) else U.hover(it, {Scale = 1.025}) end
+			if it.AbsoluteSize.X < 320 then U.hover(it, {Scale = 1.07, Tilt = 2.5}) else U.hover(it, {Scale = 1.012}) end
 		end
 		it:SetAttribute("Intro", true)
 		sc.Scale = 0.55

@@ -734,7 +734,7 @@ local function addSideTabs(marks: {{any}})
 		Size = UDim2.fromOffset(70, #marks * 82), ZIndex = 6, Parent = root})
 	U.new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = sideTabs})
 	for i, m in marks do
-		local b = U.new("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(70, 74), LayoutOrder = i, ZIndex = 6, Parent = sideTabs})
+		local b = U.new("TextButton", {Name = "Tab" .. m[3], Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(70, 74), LayoutOrder = i, ZIndex = 6, Parent = sideTabs})
 		U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon(m[2]), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(9, 0), ZIndex = 6, Parent = b})
 		U.text({Text = m[3], Size = UDim2.fromOffset(70, 20), Position = UDim2.fromOffset(0, 52), Stroke = 2.5, ZIndex = 7, Parent = b})
 		U.hover(b, {Scale = 1.15, Tilt = 6})
@@ -766,12 +766,41 @@ builders.Shop = function(parent)
 	local eggs = U.new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 4, Parent = parent})
 	grid(eggs, UDim2.fromOffset(190, 236), 10)
 	local n = 0
+	-- reference clip: a wide egg offer per Robux egg: big egg + name on the left, the pets inside with their odds, price
+	eggs:FindFirstChildOfClass("UIGridLayout"):Destroy()
+	list(eggs, 10)
 	for _, eggId in SC.EggOrder do
 		local egg = SC.Eggs[eggId]
 		if egg.Robux then
 			n += 1
-			local best = SC.Pets[egg.Odds[#egg.Odds].Pet]
-			shopCard(eggs, n, U.shade(egg.Color, 0.8), egg.Name, "Up to " .. best.Name, "R$ " .. egg.Robux, true, function() act("Hatch", eggId) end, nil, "Egg")
+			local f = card(eggs, U.shade(egg.Color, 0.85), n)
+			f.Size = UDim2.new(1, -8, 0, 176)
+			iconImg(f, "Egg", UDim2.fromOffset(120, 120), UDim2.new(0, 78, 0, 96), 7).ImageColor3 = egg.Color:Lerp(Color3.new(1, 1, 1), 0.35)
+			local t = U.title({Text = egg.Name, Size = UDim2.new(0, 170, 0, 30), Position = UDim2.fromOffset(8, 4), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = f})
+			U.rainbow(t)
+			local tag = U.text({Text = "EXCLUSIVE!", Size = UDim2.fromOffset(110, 24), Position = UDim2.new(1, -12, 0, 6), AnchorPoint = Vector2.new(1, 0), TextColor3 = C(255, 70, 90), Rotation = 6, ZIndex = 8, Parent = f})
+			tag.FontFace = U.FontHeavy
+			local chips = U.new("Frame", {BackgroundTransparency = 1, Position = UDim2.new(0, 160, 0, 34), Size = UDim2.new(1, -172, 0, 86), ZIndex = 7, Parent = f})
+			U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = chips})
+			for i, row in egg.Odds do
+				local def = SC.Pets[row.Pet]
+				local rc = SC.RarityColor and SC.RarityColor[def.Rarity] or C(200, 200, 200)
+				local chip = U.new("Frame", {Size = UDim2.fromOffset(78, 86), BackgroundColor3 = C(40, 40, 48), BackgroundTransparency = 0.25, LayoutOrder = i, ZIndex = 7, Parent = chips})
+				U.corner(6).Parent = chip
+				U.new("UIStroke", {Thickness = 2.5, Color = rc, Parent = chip})
+				local vp = petViewport(chip, row.Pet, UDim2.new(1, -6, 0, 58), UDim2.fromOffset(3, 2)); vp.ZIndex = 8
+				local pct = U.text({Text = row.Chance .. "%", Size = UDim2.new(1, -4, 0, 22), Position = UDim2.new(0, 2, 1, -24), TextColor3 = rc, Stroke = 2.5, ZIndex = 9, Parent = chip})
+				pct.FontFace = U.FontHeavy
+				U.hover(chip, {Scale = 1.12, Tilt = 4})
+			end
+			local b, bl = U.button({Text = tostring(egg.Robux), Color = U.TONES.Lime[1], Color2 = U.TONES.Lime[2], Size = UDim2.new(0, 170, 0, 44), Position = UDim2.new(1, -12, 1, -10),
+				AnchorPoint = Vector2.new(1, 1), Radius = 6, StrokeT = 3, Parent = f})
+			b.ZIndex = 8
+			U.iconLeft(b, bl, AssetsMod.Icon("Robux"), 0.22)
+			b.MouseButton1Click:Connect(function() act("Hatch", eggId) end)
+			local sub = label(f, "Hatch 1 egg", UDim2.new(1, -190, 1, -48), UDim2.new(0, 170, 0, 20), C(255, 236, 140), Enum.TextXAlignment.Right, 2)
+			sub.AnchorPoint = Vector2.new(1, 0)
+			sub.ZIndex = 8
 		end
 	end
 	local m3 = section(parent, 5, "GAME PASSES")
