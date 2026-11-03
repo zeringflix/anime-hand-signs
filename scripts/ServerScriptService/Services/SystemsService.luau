@@ -438,7 +438,7 @@ function A.Redeem(p, data, code)
 	return {ok = true, amount = c.Trophies}
 end
 
-local SETTINGS = {ReduceEffects = true, Music = true, AutoTrain = true, HideOtherPets = true}
+local SETTINGS = {ReduceEffects = true, Music = true, AutoTrain = true, HideOtherPets = true, Sfx = true} -- booleans only
 function A.Setting(p, data, key, value)
 	if typeof(key) ~= "string" or not SETTINGS[key] or typeof(value) ~= "boolean" then return {ok = false} end
 	data.Settings[key] = value

@@ -19,6 +19,9 @@ Assets.Icons = {
 	Swirl = "rbxassetid://91156024982116", Teleporter = "rbxassetid://91364695533432", Trophy = "rbxassetid://99656253443234",
 	TrophyBoost = "rbxassetid://88173952251280", Upgrades = "rbxassetid://96972025988474", Water = "rbxassetid://135052561742581",
 	Wind = "rbxassetid://122083388151864",
+	-- added 2026-11-02 (owner: blue verified Codes icon, Settings revamp); same Free Icon Pack
+	Verified = "rbxassetid://81595987767385", MusicOn = "rbxassetid://83674423258573", SoundOn = "rbxassetid://121668571817893",
+	SoundOff = "rbxassetid://133728784822044", CheckButton = "rbxassetid://106347711186346",
 }
 -- bevelled square studs (original texture, assets/textures/studs_square.png) for studded UI backgrounds
 Assets.Studs = "rbxassetid://109401654557790"

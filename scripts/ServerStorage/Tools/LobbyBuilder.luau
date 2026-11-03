@@ -30,7 +30,10 @@ local ServerStorage = game:GetService("ServerStorage")
 local B = {}
 
 -- lobby-local frame = world axes (north = -Z). The lobby is its own arena; the WORLDS portal teleports to Stage 1.
-local ORIGIN = Vector3.new(-560, 0, 0) -- separate arena far west of Stage 1 (x = -42.5) so the course is not visible over the cliffs
+-- owner 2026-11-02 ("stage one should be right in front of the lobby, like +1 Anime Eyes"): the lobby's east edge
+-- (local x = 150) is flush with Stage 1's start wall (world x = -46.5), and the south cross road (local z 44..66) lines
+-- up with Stage 1's centre line (world z = 0), so players walk off the lobby floor straight through the STAGE 1 gate.
+local ORIGIN = Vector3.new(-196.5, 0, -55)
 local HX, HZ = 150, 130 -- floor half extents (expanded: room for 13 training zones + egg plaza)
 local C = Color3.fromRGB
 local PAL = {
@@ -166,7 +169,7 @@ local LIME1, LIME2 = C(150, 224, 62), C(138, 212, 54)
 ---------------------------------------------------------------- arena: lime lawn + lavender checker roads with purple borders
 local ROADS = { -- {x0, x1, z0, z1}
 	{-15, 15, -125, 125},      -- main road (spawn -> north landmark)
-	{-140, 140, 44, 66},       -- south cross road
+	{-140, 150, 44, 66},       -- south cross road -> straight into the STAGE 1 gate
 	{-140, 140, -56, -34},     -- north cross road
 	{-34, 34, 78, 128},        -- spawn plaza in front of the WORLDS portal
 }
@@ -215,6 +218,7 @@ local function buildCliffs()
 		for _, side in {-1, 1} do
 			for x = -HX - inner - depth, HX + inner + depth - 1, 20 do
 				local h = h0 + rng:NextInteger(-2, 3)
+				if side == 1 and x + 20 > HX then continue end -- south-east corner would overlap Stage 1's cliffs
 				local z = side * (HZ + inner + depth / 2)
 				Blk(g, Vector3.new(20, h, depth), x + 10, z, -1, (x // 20) % 2 == 0 and PAL.Dirt or PAL.Dirt2)
 				Blk(g, Vector3.new(20, 1.4, depth), x + 10, z, h - 1, PAL.GrassTop, STUDS)
@@ -222,7 +226,7 @@ local function buildCliffs()
 			end
 			for z = -HZ, HZ - 1, 20 do
 				local h = h0 + rng:NextInteger(-2, 3)
-				if side == 1 and (z == 30 or z == 50) then continue end -- gap (z 30..70) for the road to Stage 1
+				if side == 1 and z > -50 then continue end -- east edge: Stage 1's start wall (with the gate) closes the lobby here
 				local x = side * (HX + inner + depth / 2)
 				Blk(g, Vector3.new(depth, h, 20), x, z + 10, -1, (z // 20) % 2 == 0 and PAL.Dirt or PAL.Dirt2)
 				Blk(g, Vector3.new(depth, 1.4, 20), x, z + 10, h - 1, PAL.GrassTop, STUDS)
@@ -230,6 +234,8 @@ local function buildCliffs()
 			end
 		end
 	end
+	-- plug between the last east cliff and Stage 1's start wall (world z -88..-80)
+	Blk(g, Vector3.new(4, 30, 8), 152, -29, -1, PAL.Dirt, {Name = "EdgePlug"})
 	-- a few small pines / bushes on the lawns (never on a road)
 	local deco = group("LawnTrees", g)
 	for _, pnt in {{-24, 20}, {-24, -20}, {26, -18}, {-130, 30}, {-130, -20}, {146, -20}, {28, -118}, {-28, -118}, {-60, 30}} do -- kept clear of station plots
@@ -614,7 +620,6 @@ function B.Build(): number
 	root:SetAttribute("BuiltBy", "ServerStorage.Tools.LobbyBuilder v5 (issue #14, owner direction 2026-11-02)")
 	buildArena(); task.wait()
 	buildCliffs(); task.wait()
-	buildStageRoad(); task.wait()
 	buildSpawnAndLamps()
 	buildPortal()
 	buildBoards()

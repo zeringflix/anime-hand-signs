@@ -360,6 +360,7 @@ Remotes.Profile.OnClientEvent:Connect(function(json: string)
 	serverOffset = (p.ServerTime or os.time()) - os.time()
 	local reduced = p.Settings and p.Settings.ReduceEffects == true
 	local hide = p.Settings and p.Settings.HideOtherPets == true
+	Sfx.Group.Volume = (p.Settings and p.Settings.Sfx == false) and 0 or 1
 	if V.Reduced ~= reduced or Looks.HideOthers ~= hide then
 		V.Reduced = reduced; Looks.Reduced = reduced; Looks.HideOthers = hide
 		Looks.Refresh()
@@ -493,7 +494,7 @@ RunService.RenderStepped:Connect(function(dt)
 	local real = (player:GetAttribute("HandSigns") or 0) + predicted
 	shownSigns = shownSigns + (real - shownSigns) * math.min(1, dt * 12)
 	if math.abs(real - shownSigns) < 1 then shownSigns = real end
-	E.BigCount.Text = fmt(shownSigns) .. " Hand Signs"
+	E.BigCount.Text = fmt(shownSigns) .. " Chakra" -- owner 2026-11-02: the big counter reads "Chakra" (like +1 Anime Eyes)
 	E.Trophies.Text = fmt(player:GetAttribute("Trophies") or 0)
 	E.RebirthCount.Text = tostring(player:GetAttribute("Rebirths") or 0)
 	local p = ctx.Profile

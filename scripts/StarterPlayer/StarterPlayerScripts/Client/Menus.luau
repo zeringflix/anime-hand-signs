@@ -75,7 +75,7 @@ local function attr(n: string) return player:GetAttribute(n) end
 
 ---------------------------------------------------------------- panel shell (+1 Anime Eyes-style: studded coloured header, red X, slate body)
 local TAB_ICON = {Signs = "HandSign", Pets = "Pets", Auras = "Aura", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Places",
-	Rewards = "Gift", Quests = "Quests", Daily = "Daily", Gifts = "Gift", Shop = "Shop", Top = "Crown", Codes = "Codes", Settings = "Settings"}
+	Rewards = "Gift", Quests = "Quests", Daily = "Daily", Gifts = "Gift", Shop = "Shop", Top = "Crown", Codes = "Verified", Settings = "Settings"}
 local TAB_TITLE = {Signs = "My Hand Signs", Pets = "Pets", Auras = "Auras", Upgrades = "Upgrades", Rebirth = "Rebirth", Stages = "Worlds",
 	Rewards = "Rewards", Quests = "Quests", Daily = "Daily Rewards", Gifts = "Free Gifts", Shop = "Store", Top = "Leaderboards", Codes = "Codes", Settings = "Settings"}
 local TAB_COLOR = {Signs = C(232, 62, 92), Pets = C(232, 62, 92), Auras = C(232, 62, 92), Shop = C(232, 62, 92), Gifts = C(232, 62, 92),
@@ -83,7 +83,7 @@ local TAB_COLOR = {Signs = C(232, 62, 92), Pets = C(232, 62, 92), Auras = C(232,
 	Daily = C(60, 150, 240), Upgrades = C(60, 180, 90), Stages = C(150, 74, 230)}
 -- header tones from the pack palette (Hand Signs = blue like the mockup the owner picked, Store = red)
 local TAB_TONE = {Signs = "Blue", Pets = "Green", Auras = "Pink", Shop = "Red", Gifts = "Pink", Rebirth = "Purple", Rewards = "Gold", Quests = "Gold",
-	Codes = "Purple", Settings = "Grey", Top = "Gold", Daily = "Green", Upgrades = "Lime", Stages = "Blue"}
+	Codes = "Blue", Settings = "Grey", Top = "Gold", Daily = "Green", Upgrades = "Lime", Stages = "Blue"}
 local headerIcon: ImageLabel
 local headerFrame: Frame
 local detail: Frame? = nil
@@ -119,8 +119,10 @@ function M.Init(c)
 	local function fit()
 		local cam = workspace.CurrentCamera
 		local v = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		local compact = current == "Rebirth"
+		local compact = current == "Rebirth" or current == "Codes" -- owner: Codes small + compact like Rebirth
 		if v.X < 900 then root.Size = compact and UDim2.fromScale(0.84, 0.6) or UDim2.fromScale(0.92, 0.86)
+		elseif current == "Codes" then root.Size = UDim2.fromScale(0.42, 0.36)
+		elseif current == "Settings" then root.Size = UDim2.fromScale(0.56, 0.6)
 		else root.Size = compact and UDim2.fromScale(0.46, 0.46) or UDim2.fromScale(0.7, 0.82) end
 	end
 	M.Fit = fit
@@ -692,10 +694,16 @@ builders.Daily = function(parent)
 			local nm = U.title({Text = txt, Size = UDim2.new(1, -16, 0, 34), Position = UDim2.new(0, 8, 1, -126), TextColor3 = C(120, 255, 120), NoGradient = true, ZIndex = 8, Parent = f})
 			nm.TextWrapped = true
 		else
+			if row.Kind == "TrophyBoost" then key = "Trophy" end -- owner: the pack's trophy with an "x2" on it
 			local ic = row.Kind == "Hatch" and eggViewport(f, row.Egg, UDim2.new(0.62, 0, 0.46, 0), UDim2.new(0.5, 0, 0.44, 0))
 				or iconImg(f, key, UDim2.new(0.62, 0, 0.44, 0), UDim2.new(0.5, 0, 0.44, 0), 8)
 			ic.ZIndex = 8
 			U.new("UIAspectRatioConstraint", {AspectRatio = 1, Parent = ic})
+			if row.Kind == "TrophyBoost" or row.Kind == "Boost" then
+				local x2 = U.title({Text = "x2", Size = UDim2.fromScale(0.62, 0.48), Position = UDim2.fromScale(0.72, 0.72), AnchorPoint = Vector2.new(0.5, 0.5), Rotation = -12,
+					TextColor3 = C(255, 236, 60), NoGradient = true, Stroke = 4, ZIndex = 9, Parent = ic})
+				local _ = x2
+			end
 			local amt = U.title({Text = txt, Size = UDim2.new(0.92, 0, 0.11, 0), Position = UDim2.new(0.96, 0, 0.68, 0), AnchorPoint = Vector2.new(1, 0.5), ZIndex = 9, NoGradient = true, Parent = f})
 			amt.TextXAlignment = Enum.TextXAlignment.Right
 			if state == "Claimed" then amt.Position = UDim2.new(0.95, 0, 0.88, 0) end
@@ -925,14 +933,20 @@ builders.Top = function(parent)
 end
 
 ---------------------------------------------------------------- CODES
-builders.Codes = function(parent)
+builders.Codes = function(parent) -- compact, like the Rebirth panel (owner 2026-11-02)
 	list(parent, 10)
-	label(parent, "Enter a code from our updates:", UDim2.new(), UDim2.new(1, 0, 0, 30))
-	local box = U.new("TextBox", {Size = UDim2.new(0.8, 0, 0, 54), BackgroundColor3 = C(30, 26, 50), TextColor3 = Color3.new(1, 1, 1), Font = U.Font, TextScaled = true,
-		PlaceholderText = "CODE", Text = "", ClearTextOnFocus = false, LayoutOrder = 2, Parent = parent})
-	U.corner(10).Parent = box
-	U.stroke(3, C(255, 200, 80), Enum.ApplyStrokeMode.Border).Parent = box
-	local b = U.button({Text = "REDEEM", Color = U.GREEN, Size = UDim2.new(0.5, 0, 0, 52), LayoutOrder = 3, Parent = parent})
+	label(parent, "Enter a code from our updates!", UDim2.new(), UDim2.new(1, -10, 0, 28), C(255, 236, 140), nil, 2.5).LayoutOrder = 1
+	local holder = U.new("Frame", {Size = UDim2.new(0.92, 0, 0, 60), BackgroundColor3 = Color3.new(1, 1, 1), LayoutOrder = 2, Parent = parent})
+	U.corner(6).Parent = holder
+	U.stroke(3.5, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = holder
+	U.gloss(holder, U.TONES.Blue[1], 6, U.TONES.Blue[2])
+	U.studs(holder, 0.25, 22)
+	local box = U.new("TextBox", {Size = UDim2.new(1, -20, 1, -16), Position = UDim2.fromOffset(10, 8), BackgroundColor3 = C(20, 30, 60), BackgroundTransparency = 0.15,
+		TextColor3 = Color3.new(1, 1, 1), FontFace = U.FontHeavy, TextScaled = true, PlaceholderText = "TYPE CODE HERE", PlaceholderColor3 = C(170, 200, 255), Text = "",
+		ClearTextOnFocus = false, ZIndex = 8, Parent = holder})
+	U.corner(6).Parent = box
+	U.new("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), Parent = box})
+	local b = U.button({Text = "REDEEM", Color = U.TONES.Lime[1], Color2 = U.TONES.Lime[2], Size = UDim2.new(0.5, 0, 0, 52), LayoutOrder = 3, Radius = 6, StrokeT = 3.5, Parent = parent})
 	b.MouseButton1Click:Connect(function()
 		local r = act("Redeem", box.Text)
 		if r and r.ok then ctx.Toast("Code redeemed! +" .. fmt(r.amount) .. " Trophies", C(120, 255, 140)) end
@@ -940,20 +954,59 @@ builders.Codes = function(parent)
 end
 
 ---------------------------------------------------------------- SETTINGS
+-- owner 2026-11-02 "revamp settings": pack-style rows (studded tone bar, pack icon, title + hint, ON/OFF pill switch),
+-- grouped like the reference clip (GAME / VISUAL). Only real, server-saved settings are listed.
+local function settingRow(parent: Instance, order: number, tone: {Color3}, icon: string, title: string, hint: string, on: boolean, onToggle: () -> ())
+	local f = U.new("Frame", {Size = UDim2.new(1, -8, 0, 72), BackgroundColor3 = Color3.new(1, 1, 1), LayoutOrder = order, Parent = parent})
+	U.corner(6).Parent = f
+	U.stroke(3.5, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = f
+	U.gloss(f, tone[1], 6, tone[2])
+	U.studs(f, 0.3, 24)
+	local ic = U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon(icon), ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(60, 60),
+		Position = UDim2.fromOffset(8, 6), ZIndex = 8, Parent = f})
+	local _ = ic
+	local t = U.text({Text = title, Position = UDim2.fromOffset(76, 6), Size = UDim2.new(1, -230, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5, ZIndex = 8, Parent = f})
+	t.FontFace = U.FontHeavy
+	U.text({Text = hint, Position = UDim2.fromOffset(76, 40), Size = UDim2.new(1, -230, 0, 22), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C(235, 240, 255), Stroke = 2, ZIndex = 8, Parent = f})
+	-- pill switch
+	local pill = U.new("TextButton", {Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(130, 48),
+		BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 8, Parent = f})
+	U.corner(24).Parent = pill
+	U.stroke(3.5, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = pill
+	local tone2 = on and U.TONES.Lime or U.TONES.Close
+	U.new("UIGradient", {Rotation = 90, Color = ColorSequence.new(tone2[1], tone2[2]), Parent = pill})
+	local knob = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = on and UDim2.new(1, -24, 0.5, 0) or UDim2.new(0, 24, 0.5, 0), Size = UDim2.fromOffset(38, 38),
+		BackgroundColor3 = Color3.new(1, 1, 1), ZIndex = 9, Parent = pill})
+	U.corner(19).Parent = knob
+	U.stroke(3, U.OUTLINE, Enum.ApplyStrokeMode.Border).Parent = knob
+	local pl = U.text({Text = on and "ON" or "OFF", Position = on and UDim2.fromOffset(12, 6) or UDim2.fromOffset(48, 6), Size = UDim2.fromOffset(70, 36), Stroke = 3, ZIndex = 9, Parent = pill})
+	pl.FontFace = U.FontHeavy
+	U.hover(pill, {Scale = 1.08})
+	pill.MouseButton1Click:Connect(function()
+		Sfx.Play("Click")
+		U.tween(knob, 0.15, {Position = (not on) and UDim2.new(1, -24, 0.5, 0) or UDim2.new(0, 24, 0.5, 0)}, Enum.EasingStyle.Back)
+		onToggle()
+	end)
+	return f
+end
 builders.Settings = function(parent)
-	list(parent, 8)
+	list(parent, 10)
 	local p = prof() or {}
 	local s = p.Settings or {}
-	local rows = {
-		{"ReduceEffects", "Reduce Effects", "Fewer particles; hides other players' auras"},
-		{"HideOtherPets", "Hide Other Pets", "Only show your own pets"},
-		{"AutoTrain", "Auto Train", "Needs the Auto Train upgrade"},
-	}
-	for i, r in rows do
-		local on = s[r[1]] == true
-		if r[1] == "AutoTrain" then on = s[r[1]] ~= false end
-		rewardRow(parent, i, r[2], r[3], on and "ON" or "OFF", true, function() act("Setting", r[1], not on) end)
+	local function head(order: number, text: string)
+		local h = U.title({Text = text, Size = UDim2.new(1, -8, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = order, Parent = parent})
+		return h
 	end
+	head(1, "GAME")
+	settingRow(parent, 2, U.TONES.Blue, s.Sfx == false and "SoundOff" or "SoundOn", "Sound Effects", "Hits, jutsu, rewards and clicks", s.Sfx ~= false,
+		function() act("Setting", "Sfx", s.Sfx == false) end)
+	settingRow(parent, 3, U.TONES.Green, "Swirl", "Auto Train", "Needs the Auto Train upgrade or OP Auto Clicker", s.AutoTrain ~= false,
+		function() act("Setting", "AutoTrain", s.AutoTrain == false) end)
+	head(4, "VISUAL")
+	settingRow(parent, 5, U.TONES.Purple, "Aura", "Reduce Effects", "Fewer particles; hides other players' auras", s.ReduceEffects == true,
+		function() act("Setting", "ReduceEffects", s.ReduceEffects ~= true) end)
+	settingRow(parent, 6, U.TONES.Pink, "Pets", "Hide Other Pets", "Only show your own pets", s.HideOtherPets == true,
+		function() act("Setting", "HideOtherPets", s.HideOtherPets ~= true) end)
 end
 
 return M

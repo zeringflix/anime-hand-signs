@@ -77,14 +77,15 @@ function H.Build(gui: ScreenGui)
 	local tr = U.new("Frame", {Name = "TopRight", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 6), Size = UDim2.fromOffset(500, 84), BackgroundTransparency = 1, Parent = gui})
 	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = tr})
 	E.TopIcons = {}
-	for i, d in {{"Codes", "Codes", "Codes"}, {"Daily", "Daily", "Daily"}, {"Gifts", "Gift", "Gifts"}, {"Invite", "Invite", "Invite"}, {"Settings", "Settings", "Settings"}} do
-		local b = U.new("TextButton", {Name = d[1], Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(86, 88), LayoutOrder = i, Parent = tr})
-		img({Icon = d[2], Size = UDim2.fromOffset(64, 64), Position = UDim2.fromOffset(11, -4), Parent = b})
-		U.text({Text = d[3], Font = U.TitleFont, Size = UDim2.fromOffset(92, 28), Position = UDim2.fromOffset(-3, 56), Stroke = 3.5, Parent = b})
+	-- owner 2026-11-02: small compact studded tiles, same style as the Rebirth tile; Codes = the pack's blue verified icon
+	for i, d in {{"Codes", "Verified", "Codes", U.TONES.Blue}, {"Daily", "Daily", "Daily", U.TONES.Green}, {"Gifts", "Gift", "Gifts", U.TONES.Pink},
+		{"Invite", "Invite", "Invite", U.TONES.Gold}, {"Settings", "Settings", "Settings", U.TONES.Dark}} do
+		local b = tile(tr, d[4], d[2], d[3], Vector2.new(72, 72), i)
+		b.Name = d[1]
 		E.TopIcons[d[1]] = b
 	end
-	E.DailyDot = U.new("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(62, 2), BackgroundColor3 = C(255, 60, 60), Visible = false, Parent = E.TopIcons.Daily})
-	E.GiftDot = U.new("Frame", {Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(62, 2), BackgroundColor3 = C(255, 60, 60), Visible = false, Parent = E.TopIcons.Gifts})
+	E.DailyDot = U.new("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -12, 0, -6), BackgroundColor3 = C(255, 60, 60), Visible = false, ZIndex = 6, Parent = E.TopIcons.Daily})
+	E.GiftDot = U.new("Frame", {Size = UDim2.fromOffset(18, 18), Position = UDim2.new(1, -12, 0, -6), BackgroundColor3 = C(255, 60, 60), Visible = false, ZIndex = 6, Parent = E.TopIcons.Gifts})
 	U.corner(8).Parent = E.GiftDot
 	U.stroke(2, Color3.new(1, 1, 1), Enum.ApplyStrokeMode.Border).Parent = E.GiftDot
 	U.corner(8).Parent = E.DailyDot
@@ -178,15 +179,17 @@ function H.Build(gui: ScreenGui)
 	E.AbilityR = ability(116, UDim2.new(1, 0, 1, -162), U.TONES.Purple, "R")
 
 	-- auto clickers (left of the ability cluster)
-	local ac = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(160, 240), BackgroundTransparency = 1, Parent = br})
-	local opTitle = U.text({Text = "OP Auto Clicker", Size = UDim2.fromOffset(160, 24), TextColor3 = C(255, 220, 60), Stroke = 2.5, Parent = ac})
-	local op, opL = U.button({Text = "PASS", Color = C(255, 255, 255), Size = UDim2.fromOffset(150, 70), Position = UDim2.fromOffset(5, 26), Radius = 12, StrokeT = 4, Parent = ac})
-	op:FindFirstChildOfClass("UIGradient"):Destroy()
-	U.new("UIGradient", {Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 120, 120)), ColorSequenceKeypoint.new(0.33, C(255, 230, 120)), ColorSequenceKeypoint.new(0.66, C(120, 255, 160)), ColorSequenceKeypoint.new(1, C(120, 170, 255))}), Rotation = 20, Parent = op})
+	-- owner 2026-11-02: smaller auto clicker buttons; the OP Auto Clicker is always shown (rainbow, "SOON" until the pass has an Id)
+	local ac = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(120, 160), BackgroundTransparency = 1, Parent = br})
+	local opTitle = U.text({Text = "OP Auto Clicker", Size = UDim2.fromOffset(120, 18), TextColor3 = C(255, 220, 60), Stroke = 2, Parent = ac})
+	U.rainbow(opTitle)
+	local op, opL = U.button({Text = "PASS", Color = C(255, 255, 255), Size = UDim2.fromOffset(112, 46), Position = UDim2.fromOffset(4, 20), Radius = 6, StrokeT = 3, StudTile = 16, Parent = ac})
+	local fillG = op:FindFirstChild("Fill"); if fillG then fillG:Destroy() end
+	U.new("UIGradient", {Name = "Fill", Color = ColorSequence.new({ColorSequenceKeypoint.new(0, C(255, 120, 120)), ColorSequenceKeypoint.new(0.33, C(255, 230, 120)), ColorSequenceKeypoint.new(0.66, C(120, 255, 160)), ColorSequenceKeypoint.new(1, C(120, 170, 255))}), Rotation = 20, Parent = op})
 	E.OPAuto, E.OPAutoLabel = op, opL
-	if SC.GamePasses.AutoClicker.Id == 0 then op.Visible = false; opTitle.Visible = false end
-	U.text({Text = "FREE Auto Clicker", Position = UDim2.fromOffset(0, 104), Size = UDim2.fromOffset(160, 24), TextColor3 = C(120, 255, 110), Stroke = 2.5, Parent = ac})
-	local fr, frL = U.button({Text = "CLAIM", Color = C(90, 90, 105), Size = UDim2.fromOffset(150, 70), Position = UDim2.fromOffset(5, 130), Radius = 12, StrokeT = 4, Parent = ac})
+	local _ = opTitle
+	U.text({Text = "FREE Auto Clicker", Position = UDim2.fromOffset(0, 76), Size = UDim2.fromOffset(120, 18), TextColor3 = C(120, 255, 110), Stroke = 2, Parent = ac})
+	local fr, frL = U.button({Text = "CLAIM", Color = C(90, 90, 105), Size = UDim2.fromOffset(112, 46), Position = UDim2.fromOffset(4, 96), Radius = 6, StrokeT = 3, StudTile = 16, Parent = ac})
 	local barBack = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Size = UDim2.new(1, -20, 0, 8), BackgroundColor3 = C(40, 40, 50), ZIndex = 3, Parent = fr})
 	U.corner(4).Parent = barBack
 	E.FreeAutoFill = U.new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = C(110, 255, 110), ZIndex = 3, Parent = barBack})
