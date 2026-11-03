@@ -44,4 +44,24 @@ Assets.SignIcons = {
 	Horse = "rbxassetid://73627783857913", Boar = "rbxassetid://112009649334919", Dog = "rbxassetid://130848249850652",
 	Bird = "rbxassetid://104563382389792", Monkey = "rbxassetid://78682738981925", Dragon = "rbxassetid://117006185478056",
 }
+
+-- Training-station VFX textures: ORIGINAL, drawn with numpy (vfx/training/textures.py), uploaded 2026-11-02.
+-- White shapes in alpha; emitter Color tints them. Map: vfx/training/asset_ids.json
+Assets.FX = {
+	Bolt = "rbxassetid://77440291120462",
+	Column = "rbxassetid://109288698541393",
+	Ember = "rbxassetid://98260290348533",
+	Flame = "rbxassetid://128196827751321",
+	Glint = "rbxassetid://110913753050498",
+	Glow = "rbxassetid://112123228465402",
+	Halo = "rbxassetid://91979392887827",
+	Mist = "rbxassetid://123588300305744",
+	Orb = "rbxassetid://87369425414757",
+	Petal = "rbxassetid://91312796559442",
+	Ring = "rbxassetid://101137204663510",
+	Rune = "rbxassetid://89802798448788",
+	Shard = "rbxassetid://73563628895087",
+	Smoke = "rbxassetid://78579475702105",
+	Swirl = "rbxassetid://98358801781376",
+}
 return Assets

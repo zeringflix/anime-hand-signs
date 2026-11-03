@@ -374,6 +374,8 @@ local STATION_SLOTS = {
 	{40, -72, 0}, {70, -72, 0}, {100, -72, 0}, {130, -72, 0},       -- beyond the north cross road, facing it: X25$ X35 X40 X50$
 	{85, -104, 0},                                                  -- X250$ (big) at the far end
 }
+-- beam tip height above the lobby floor: beginners short, legendary stations taller (issue #14 review: no sky pillars)
+local BEAM_TIP = {16, 16.5, 17, 21, 24, 23, 25, 25, 23, 26, 26, 27, 31}
 local STATION_MODEL = {"Dummy", "Ring", "ChakraPool", "Forge", "GoldenDojo", "ScrollTemple", "StormPagoda", "GravitySeal", "ThunderDome",
 	"CrimsonAltar", "VoidTotem", "DragonGate", "SageThrone"}
 local function buildStations()
@@ -391,11 +393,37 @@ local function buildStations()
 		if src then
 			local mdl = (src :: Model):Clone()
 			mdl.Name = "StationModel"
+			mdl:SetAttribute("Kind", STATION_MODEL[i])
 			if big then mdl:ScaleTo(1.35) end
 			mdl:PivotTo(CFrame.new(W(x, z, 0)) * CFrame.Angles(0, math.rad(slot[3] or 0), 0)) -- front faces the nearest cross road
 			mdl.Parent = m
+			-- the Blender neon pillar (+ its white core) becomes FxCore: BeamOrigin / BeamTip / NameAnchor attachments.
+			-- The client draws a custom textured beam between them; the station label hangs at the beam's top.
+			local beamPart: BasePart? = nil
+			for _, d in mdl:GetDescendants() do if d:IsA("BasePart") and d:GetAttribute("Fx") == "beam" then beamPart = d; break end end
+			local bx, bz, baseY = W(x, z, 0).X, W(x, z, 0).Z, nil
+			if beamPart then
+				local bp = beamPart :: BasePart
+				bx, bz, baseY = bp.Position.X, bp.Position.Z, bp.Position.Y - bp.Size.X / 2 - ORIGIN.Y
+				for _, d in mdl:GetDescendants() do
+					if d:IsA("BasePart") and d ~= bp and d.Material == Enum.Material.Neon and math.abs(d.Position.X - bx) < 0.08
+						and math.abs(d.Position.Z - bz) < 0.08 and math.abs(d.Size.X - bp.Size.X) < 0.08 then d:Destroy() end
+				end
+				bp:Destroy()
+			end
 			local cf, sz = mdl:GetBoundingBox()
-			top = (cf.Position.Y + sz.Y / 2) - ORIGIN.Y
+			local modelTop = (cf.Position.Y + sz.Y / 2) - ORIGIN.Y
+			baseY = baseY or modelTop
+			local tip = math.max(BEAM_TIP[i] or 20, (baseY :: number) + 6)
+			local core = P({Name = "FxCore", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(bx, ORIGIN.Y + (baseY :: number), bz), Transparency = 1,
+				CanCollide = false, CanQuery = false, CanTouch = false, Parent = m})
+			core:SetAttribute("Kind", STATION_MODEL[i]); core:SetAttribute("Tier", i); core:SetAttribute("Color", st.Color)
+			core:SetAttribute("Floor", ORIGIN.Y + 0.6); core:SetAttribute("ZoneX", W(x, z, 0).X); core:SetAttribute("ZoneZ", W(x, z, 0).Z)
+			for name, h in {BeamOrigin = 0, BeamTip = tip - baseY, NameAnchor = tip - baseY + 2.4} do
+				local a = Instance.new("Attachment"); a.Name = name; a.Position = Vector3.new(0, h, 0); a.Parent = core
+			end
+			top = tip
+			m:SetAttribute("NameAnchorY", tip + 2.4)
 		end
 		local half = big and 11 or 8
 		if st.Pass then -- Robux zone: gold aura under the plinth + unlock prompt (game pass; locked until the owner creates it)
@@ -407,15 +435,24 @@ local function buildStations()
 		zone:SetAttribute("StationIndex", i)
 		-- (light pillars now come from the Blender station models themselves)
 		-- label: "X2 HAND SIGNS" + price (rebirth icon + count, or Robux in rainbow) — nothing else (declutter)
-		local bb = billboard(anchor(m, x, z, top + 4), Vector2.new(15, 5.6), 0, 170, "Card")
+		local nameAt = m:FindFirstChild("FxCore") and (m.FxCore :: BasePart):FindFirstChild("NameAnchor")
+		local bb: BillboardGui
+		if nameAt then -- label sits at the top of the beam (BillboardGui parented to the NameAnchor attachment)
+			bb = Instance.new("BillboardGui")
+			bb.Name = "Card"; bb.Size = UDim2.fromScale(13, 4.9); bb.MaxDistance = 170; bb.LightInfluence = 0
+			bb.Parent = nameAt
+		else
+			bb = billboard(anchor(m, x, z, top + 4), Vector2.new(13, 4.9), 0, 170, "Card")
+		end
 		local t = text(bb, "X" .. Config.Format(st.Mult) .. " HAND SIGNS", UDim2.fromScale(0, 0), UDim2.fromScale(1, 0.55), st.Color, 4, "Mult"); t.Font = Enum.Font.LuckiestGuy
 		if st.Pass then
 			icon(bb, "Robux", UDim2.fromScale(0.28, 0.57), UDim2.fromScale(0.14, 0.42))
 			local pr = text(bb, tostring(st.Robux), UDim2.fromScale(0.44, 0.58), UDim2.fromScale(0.34, 0.4), C(120, 255, 120), 4, "Price"); pr.Font = Enum.Font.LuckiestGuy
 			rainbowText(pr); rainbowText(t)
 		else
-			icon(bb, "Rebirth", UDim2.fromScale(0.32, 0.57), UDim2.fromScale(0.14, 0.42))
-			local pr = text(bb, Config.Format(st.Rebirths or 0), UDim2.fromScale(0.48, 0.58), UDim2.fromScale(0.3, 0.4), (st.Rebirths or 0) > 0 and C(255, 90, 90) or C(120, 255, 130), 4, "Price")
+			icon(bb, "Rebirth", UDim2.fromScale(0.18, 0.57), UDim2.fromScale(0.13, 0.42))
+			local n = st.Rebirths or 0
+			local pr = text(bb, Config.Format(n) .. (n == 1 and " REBIRTH" or " REBIRTHS"), UDim2.fromScale(0.32, 0.58), UDim2.fromScale(0.58, 0.4), n > 0 and C(255, 120, 120) or C(120, 255, 130), 4, "Price")
 			pr.Font = Enum.Font.LuckiestGuy
 		end
 	end

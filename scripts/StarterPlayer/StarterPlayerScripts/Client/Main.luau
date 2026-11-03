@@ -136,6 +136,8 @@ task.spawn(function() -- lobby hub (issue #14); isolated so a lobby error can't 
 	if not okV then warn("[EnemyVisibility] init failed:", errV) end
 	local ok, err = pcall(function() require(Client:WaitForChild("Lobby")).Init(ctx) end)
 	if not ok then warn("[Lobby] init failed:", err) end
+	local okFx, errFx = pcall(function() require(Client:WaitForChild("TrainingFX")).Start() end) -- decorative station VFX
+	if not okFx then warn("[TrainingFX] start failed:", errFx) end
 end)
 Looks.Start()
 Anim.Start()
