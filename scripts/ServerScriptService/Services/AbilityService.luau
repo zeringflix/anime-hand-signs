@@ -130,7 +130,7 @@ function K.dash(p, j, hrp, target, dmg)
 	if not target then return false end
 	vfx("Charge", j.Id, p.Character, 0.35)
 	task.delay(0.35, function()
-		if target.Dead or not hrp.Parent then return end
+		if target.Dead or rootOf(p) ~= hrp or p:GetAttribute("InLobby") or target.Stage ~= p:GetAttribute("InStage") then return end
 		local tp = target.Root.Position
 		local dir = flat(tp - hrp.Position)
 		vfx("Dash", j.Id, hrp.Position, tp - dir * 3)
@@ -145,9 +145,10 @@ end
 local function cloneModel(p: Player): Model?
 	local char = p.Character
 	if not char then return nil end
+	local wasArchivable = char.Archivable
 	char.Archivable = true
 	local c = char:Clone()
-	char.Archivable = false
+	char.Archivable = wasArchivable
 	if not c then return nil end
 	for _, d in c:GetDescendants() do
 		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ModuleScript") then d:Destroy()
@@ -177,7 +178,7 @@ function K.clones(p, j, hrp, target, dmg)
 		task.spawn(function()
 			local stop = os.clock() + j.Duration
 			local hum = c:FindFirstChildOfClass("Humanoid")
-			while c.Parent and os.clock() < stop do
+			while c.Parent and rootOf(p) == hrp and not p:GetAttribute("InLobby") and os.clock() < stop do
 				local croot = c.PrimaryPart :: BasePart
 				local e = EnemyService.Nearest(croot.Position, j.Range, nil, p)
 				if e and hum then
@@ -498,8 +499,9 @@ function K.transform(p, j, hrp, target, dmg)
 	vfx("Susanoo", p.Character, j.Duration)
 	task.spawn(function()
 		local stop = os.clock() + j.Duration
-		while os.clock() < stop and hrp.Parent do
+		while os.clock() < stop and rootOf(p) == hrp and not p:GetAttribute("InLobby") do
 			task.wait(1)
+			if rootOf(p) ~= hrp or p:GetAttribute("InLobby") then break end
 			local e = EnemyService.Nearest(hrp.Position, j.Range, nil, p)
 			if e then
 				local dir = flat(e.Root.Position - hrp.Position)
@@ -580,10 +582,25 @@ GameService.OnEquipChanged[#GameService.OnEquipChanged + 1] = function(p: Player
 	GameService.Notify(p, "CooldownSync", out)
 end
 
-Players.PlayerRemoving:Connect(function(p)
-	cooldowns[p] = nil; slotLockUntil[p] = nil; buffs[p] = nil; lastM1[p] = nil
-	for _, m in summons[p] or {} do if m.Parent then m:Destroy() end end
+-- Temporary shields, transformations and companions belong to one character life.
+local function clearCharacterEffects(p: Player)
+	local b = buffs[p]
+	if b then
+		for _, wall in b.Walls do if wall.Parent then wall:Destroy() end end
+	end
+	buffs[p] = nil
+	for _, model in summons[p] or {} do if model.Parent then model:Destroy() end end
 	summons[p] = nil
+end
+local function watchCharacter(p: Player)
+	p.CharacterRemoving:Connect(function() clearCharacterEffects(p) end)
+end
+Players.PlayerAdded:Connect(watchCharacter)
+for _, p in Players:GetPlayers() do watchCharacter(p) end
+
+Players.PlayerRemoving:Connect(function(p)
+	clearCharacterEffects(p)
+	cooldowns[p] = nil; slotLockUntil[p] = nil; lastM1[p] = nil
 end)
 
 function AbilityService.Start() end

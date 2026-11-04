@@ -26,7 +26,7 @@ function Presentation.Start()
 		local stage = obj.Parent
 		local index = stage and tonumber(stage.Name:match("^Stage(%d+)$"))
 		local theme = index and Config.Stages[index]
-		if theme then
+		if theme and not stage:GetAttribute("ReferenceFinishVersion") then
 			-- Retain the collision wall; blend its raw red face into the biome's cliff palette.
 			obj.Color = theme.Cliff
 			obj.Material = Enum.Material.Slate

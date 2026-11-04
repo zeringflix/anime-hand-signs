@@ -123,19 +123,36 @@ local function elementOf(id: string?): string
 end
 V.ElementOf = elementOf
 
+-- Ground effects follow actual surfaces, including raised pads and future biomes.
+local function groundAt(pos: Vector3): Vector3
+	local params = RaycastParams.new()
+	local exclude = {fxFolder}
+	local enemies = workspace:FindFirstChild("Enemies")
+	if enemies then table.insert(exclude, enemies) end
+	for _, player in game:GetService("Players"):GetPlayers() do
+		if player.Character then table.insert(exclude, player.Character) end
+	end
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = exclude
+	params.RespectCanCollide = true
+	local hit = workspace:Raycast(pos + Vector3.new(0, 3, 0), Vector3.new(0, -160, 0), params)
+	return hit and hit.Position + Vector3.new(0, 0.12, 0) or pos
+end
+V.GroundAt = groundAt
+
 -- the core hit/impact stack; scale ~ radius in studs
 local function fxBurst(pos: Vector3, c1: Color3, c2: Color3, scale: number, element: string?, opts: {[string]: any}?)
 	local o = opts or {}
 	local a, att = holder(pos)
 	-- 1 flash
 	layer(att, {Texture = TEX.Glow, Color = CS(c2:Lerp(Color3.new(1, 1, 1), 0.5)), Size = nseq({{0, scale * 1.2}, {0.25, scale * 2.6}, {1, scale * 3}}),
-		Transparency = nseq({{0, 0}, {0.4, 0.3}, {1, 1}}), Lifetime = NR(0.16, 0.2), Speed = NR(0), ZOffset = 2, Brightness = 3}, 1)
+		Transparency = nseq({{0, 0.4}, {0.4, 0.65}, {1, 1}}), Lifetime = NR(0.12, 0.16), Speed = NR(0), ZOffset = 2, Brightness = 1.2}, 1)
 	-- 2 shock ring (camera facing)
 	layer(att, {Texture = TEX.Ring, Color = CS(c1:Lerp(Color3.new(1, 1, 1), 0.3)), Size = nseq({{0, scale * 0.6}, {1, scale * 4.2}}),
 		Transparency = nseq({{0, 0.05}, {0.6, 0.5}, {1, 1}}), Lifetime = NR(0.28, 0.32), Speed = NR(0), ZOffset = 1, Brightness = 2}, 1)
 	-- 3 ground ring (flat): velocity straight up + VelocityPerpendicular
 	if not o.NoGround then
-		local ga, gatt = holder(Vector3.new(pos.X, pos.Y - (o.GroundDrop or scale * 0.9), pos.Z))
+		local ga, gatt = holder(groundAt(pos))
 		layer(gatt, {Texture = TEX.Ring, Color = CS(c1), Size = nseq({{0, scale * 0.8}, {1, scale * 5.5}}), Transparency = nseq({{0, 0.1}, {1, 1}}),
 			Lifetime = NR(0.45, 0.5), Speed = NR(0.01), EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.zero,
 			Orientation = Enum.ParticleOrientation.VelocityPerpendicular, Brightness = 1.5}, 1)
@@ -176,7 +193,7 @@ local function fxBurst(pos: Vector3, c1: Color3, c2: Color3, scale: number, elem
 			Transparency = nseq({{0, 0.2}, {1, 1}}), Lifetime = NR(0.6, 1), Speed = NR(scale * 2, scale * 5), SpreadAngle = Vector2.new(180, 180), Rotation = NR(0, 360)}, 10)
 	end
 	-- a quick light pop
-	local l = Instance.new("PointLight"); l.Color = c1; l.Range = scale * 8; l.Brightness = 4; l.Shadows = false; l.Parent = a
+	local l = Instance.new("PointLight"); l.Color = c1; l.Range = math.min(scale * 5, 24); l.Brightness = 1.25; l.Shadows = false; l.Parent = a
 	tw(l, 0.35, {Brightness = 0})
 	Debris:AddItem(a, 1.6)
 end
@@ -224,7 +241,7 @@ local function makeOrb(id, pos)
 	-- glow halo that follows the orb
 	local halo = Instance.new("ParticleEmitter")
 	halo.Texture = TEX.Glow; halo.Color = CS(c1); halo.LightEmission = 1; halo.Brightness = 2; halo.LockedToPart = true
-	halo.Size = NS((big and 6 or 3.5)); halo.Transparency = nseq({{0, 0.3}, {1, 1}}); halo.Lifetime = NR(0.12); halo.Rate = 30; halo.Speed = NR(0)
+	halo.Size = NS((big and 4.8 or 2.5)); halo.Transparency = nseq({{0, 0.3}, {1, 1}}); halo.Lifetime = NR(0.12); halo.Rate = 30; halo.Speed = NR(0)
 	halo.Parent = center
 	-- body particles by element
 	local body = Instance.new("ParticleEmitter")
@@ -240,6 +257,19 @@ local function makeOrb(id, pos)
 	end
 	body.Transparency = nseq({{0, 0}, {1, 1}})
 	body.Parent = center
+	if el == "fire" then
+		local embers = Instance.new("ParticleEmitter")
+		embers.Name = "FireTail"; embers.Texture = TEX.Spark
+		embers.Color = CS(Color3.fromRGB(255, 237, 149), c1)
+		embers.LightEmission = 1; embers.Brightness = 1.5
+		embers.Size = nseq({{0, big and 0.5 or 0.28}, {1, 0}})
+		embers.Transparency = nseq({{0, 0}, {1, 1}})
+		embers.Lifetime = NR(0.18, 0.35); embers.Speed = NR(1, 3)
+		embers.Rate = V.Reduced and 8 or (big and 32 or 16)
+		embers.SpreadAngle = Vector2.new(45, 45)
+		embers.Orientation = Enum.ParticleOrientation.VelocityParallel
+		embers.Parent = center
+	end
 	local l = Instance.new("PointLight"); l.Color = c1; l.Range = big and 16 or 10; l.Brightness = 2.5; l.Shadows = false; l.Parent = o
 	return o
 end
@@ -252,7 +282,7 @@ function V.Projectile(id, from, targetModel, speed)
 	local t0 = os.clock()
 	local conn
 	conn = RunService.RenderStepped:Connect(function(dt)
-		if not tgt.Parent or os.clock() - t0 > 3 then conn:Disconnect(); o:Destroy(); return end
+		if not o.Parent or not tgt:IsDescendantOf(workspace) or os.clock() - t0 > 3 then conn:Disconnect(); o:Destroy(); return end
 		local to = tgt.Position - pos
 		if to.Magnitude < speed * dt + 1 then conn:Disconnect(); o:Destroy(); return end
 		pos += to.Unit * speed * dt
@@ -769,7 +799,7 @@ function V.Explosion(id, pos, radius)
 	fxBurst(pos, c1, c2, math.clamp(radius / 2.5, 2, 9), el, {Sparks = 34, Embers = 22, Smoke = 14, GroundDrop = math.max(pos.Y - 0.2, 0.5)})
 	-- lingering column of smoke / flame for the big ones
 	if radius >= 12 then
-		local a, att = holder(Vector3.new(pos.X, pos.Y - math.max(pos.Y - 0.5, 0), pos.Z))
+		local a, att = holder(groundAt(pos))
 		local e = Instance.new("ParticleEmitter")
 		e.Texture = el == "fire" and TEX.Flame or TEX.Smoke
 		e.Color = el == "fire" and CS(Color3.fromRGB(255, 220, 140), c1) or CS(darker(c1, 0.5), Color3.fromRGB(70, 70, 76))
@@ -808,6 +838,7 @@ function V.Charge(id, char, t)
 	gather.Parent = shape
 	task.delay(t, function()
 		gather.Enabled = false; sw.Enabled = false
+		if not hand:IsDescendantOf(workspace) or not char:IsDescendantOf(workspace) then return end
 		fxBurst(hand.Position, c1, c2, 1.2, elementOf(id), {NoGround = true, Sparks = 10, Embers = 6, Smoke = 2})
 	end)
 	Debris:AddItem(att, t + 0.6)

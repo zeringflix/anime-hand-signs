@@ -35,6 +35,7 @@ local function weldPart(model: Model, to: BasePart, size: Vector3, offset: CFram
 	if shape then p.Shape = shape end
 	p.CanCollide = false
 	p.CanQuery = false
+	p.CanTouch = false
 	p.Massless = true
 	p.CFrame = to.CFrame * offset
 	local w = Instance.new("WeldConstraint")
@@ -93,9 +94,24 @@ local function buildRig(stage: number, variant: number, isBoss: boolean, name: s
 		weldPart(model, head, Vector3.new(0.11, 0.15, 0.06), CFrame.new(side * 0.27, 0.04, -0.73), isBoss and st.Gate or Color3.fromRGB(205, 45, 65), isBoss and Enum.Material.Neon or Enum.Material.SmoothPlastic)
 		weldPart(model, torso, Vector3.new(0.64, 0.82, 0.14), CFrame.new(side * 0.55, -0.15, -0.65), shade(outfit, 1.25))
 	end
+	-- Fine face and costume details follow existing animated body parts.
+	for _, side in {-1, 1} do
+		weldPart(model, head, Vector3.new(0.045, 0.12, 0.065), CFrame.new(side * 0.27, 0.04, -0.77), Color3.fromRGB(20, 17, 27))
+		weldPart(model, head, Vector3.new(0.34, 0.055, 0.065), CFrame.new(side * 0.27, 0.165, -0.73) * CFrame.Angles(0, 0, side * 0.12), hairCol)
+		local arm = model:FindFirstChild(side == -1 and "LeftLowerArm" or "RightLowerArm")
+		if arm then
+			weldPart(model, arm, Vector3.new(0.87, 0.6, 0.88), CFrame.new(0, -0.18, 0), shade(outfit, 0.55))
+			weldPart(model, arm, Vector3.new(0.89, 0.12, 0.9), CFrame.new(0, -0.35, 0), Color3.fromRGB(209, 202, 185))
+		end
+	end
+	weldPart(model, torso, Vector3.new(0.1, 1.2, 0.12), CFrame.new(0, -0.08, -0.68), Color3.fromRGB(190, 185, 169))
+	local pouch = weldPart(model, torso, Vector3.new(0.45, 0.5, 0.35), CFrame.new(0.83, -0.7, 0.56), Color3.fromRGB(92, 65, 43))
+	pouch.Name = "BeltPouch"
 	if isBoss then
 		weldPart(model, torso, Vector3.new(2.4, 3, 0.2), CFrame.new(0, -1.2, 0.7) * CFrame.Angles(0.15, 0, 0), st.Gate)
 		local aura = Instance.new("ParticleEmitter")
+		aura.Texture = "rbxassetid://118322217786922"
+		aura.Name = "BossEmbers"
 		aura.Color = ColorSequence.new(st.Gate)
 		aura.LightEmission = 1
 		aura.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0)})

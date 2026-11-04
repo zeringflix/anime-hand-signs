@@ -180,9 +180,9 @@ local function refreshAbilities()
 	for _, pair in {{E.AbilityE, s.E}, {E.AbilityR, s.R}} do
 		local b, j = pair[1], Config.Jutsu[pair[2]]
 		b.Name.Text = j.Short
-		b.Icon.Image = (Assets.SignIcons and Assets.SignIcons[s.Id]) or Assets.Icon(Assets.JutsuIcon[j.Vfx] or "Chakra")
+		b.Icon.Image = Assets.AttackIcon(pair[2], s.Id)
 	end
-	-- one emblem motif: the equipped hand sign's icon on ATTACK, E and R (issue #14)
+	-- M1 keeps the equipped seal; E/R resolve independently from their actual jutsu IDs.
 	if Assets.SignIcons and Assets.SignIcons[s.Id] then E.Attack.Icon.Image = Assets.SignIcons[s.Id] end
 	if E.SignsIcon and Assets.SignIcons and Assets.SignIcons[s.Id] then E.SignsIcon.Image = Assets.SignIcons[s.Id] end
 end
