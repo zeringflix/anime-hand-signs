@@ -1,0 +1,387 @@
+--- a/scripts/StarterPlayer/StarterPlayerScripts/Client/Presentation.luau
++++ b/scripts/StarterPlayer/StarterPlayerScripts/Client/Presentation.luau
+@@ -26,7 +26,7 @@
+ 		local stage = obj.Parent
+ 		local index = stage and tonumber(stage.Name:match("^Stage(%d+)$"))
+ 		local theme = index and Config.Stages[index]
+-		if theme then
++		if theme and not stage:GetAttribute("ReferenceFinishVersion") then
+ 			-- Retain the collision wall; blend its raw red face into the biome's cliff palette.
+ 			obj.Color = theme.Cliff
+ 			obj.Material = Enum.Material.Slate
+--- a/scripts/StarterPlayer/StarterPlayerScripts/Client/Main.luau
++++ b/scripts/StarterPlayer/StarterPlayerScripts/Client/Main.luau
+@@ -180,9 +180,9 @@
+ 	for _, pair in {{E.AbilityE, s.E}, {E.AbilityR, s.R}} do
+ 		local b, j = pair[1], Config.Jutsu[pair[2]]
+ 		b.Name.Text = j.Short
+-		b.Icon.Image = (Assets.SignIcons and Assets.SignIcons[s.Id]) or Assets.Icon(Assets.JutsuIcon[j.Vfx] or "Chakra")
+-	end
+-	-- one emblem motif: the equipped hand sign's icon on ATTACK, E and R (issue #14)
++		b.Icon.Image = Assets.AttackIcon(pair[2], s.Id)
++	end
++	-- M1 keeps the equipped seal; E/R resolve independently from their actual jutsu IDs.
+ 	if Assets.SignIcons and Assets.SignIcons[s.Id] then E.Attack.Icon.Image = Assets.SignIcons[s.Id] end
+ 	if E.SignsIcon and Assets.SignIcons and Assets.SignIcons[s.Id] then E.SignsIcon.Image = Assets.SignIcons[s.Id] end
+ end
+--- a/scripts/StarterPlayer/StarterPlayerScripts/Client/VFX.luau
++++ b/scripts/StarterPlayer/StarterPlayerScripts/Client/VFX.luau
+@@ -123,19 +123,36 @@
+ end
+ V.ElementOf = elementOf
+ 
++-- Ground effects follow actual surfaces, including raised pads and future biomes.
++local function groundAt(pos: Vector3): Vector3
++	local params = RaycastParams.new()
++	local exclude = {fxFolder}
++	local enemies = workspace:FindFirstChild("Enemies")
++	if enemies then table.insert(exclude, enemies) end
++	for _, player in game:GetService("Players"):GetPlayers() do
++		if player.Character then table.insert(exclude, player.Character) end
++	end
++	params.FilterType = Enum.RaycastFilterType.Exclude
++	params.FilterDescendantsInstances = exclude
++	params.RespectCanCollide = true
++	local hit = workspace:Raycast(pos + Vector3.new(0, 3, 0), Vector3.new(0, -160, 0), params)
++	return hit and hit.Position + Vector3.new(0, 0.12, 0) or pos
++end
++V.GroundAt = groundAt
++
+ -- the core hit/impact stack; scale ~ radius in studs
+ local function fxBurst(pos: Vector3, c1: Color3, c2: Color3, scale: number, element: string?, opts: {[string]: any}?)
+ 	local o = opts or {}
+ 	local a, att = holder(pos)
+ 	-- 1 flash
+ 	layer(att, {Texture = TEX.Glow, Color = CS(c2:Lerp(Color3.new(1, 1, 1), 0.5)), Size = nseq({{0, scale * 1.2}, {0.25, scale * 2.6}, {1, scale * 3}}),
+-		Transparency = nseq({{0, 0}, {0.4, 0.3}, {1, 1}}), Lifetime = NR(0.16, 0.2), Speed = NR(0), ZOffset = 2, Brightness = 3}, 1)
++		Transparency = nseq({{0, 0.4}, {0.4, 0.65}, {1, 1}}), Lifetime = NR(0.12, 0.16), Speed = NR(0), ZOffset = 2, Brightness = 1.2}, 1)
+ 	-- 2 shock ring (camera facing)
+ 	layer(att, {Texture = TEX.Ring, Color = CS(c1:Lerp(Color3.new(1, 1, 1), 0.3)), Size = nseq({{0, scale * 0.6}, {1, scale * 4.2}}),
+ 		Transparency = nseq({{0, 0.05}, {0.6, 0.5}, {1, 1}}), Lifetime = NR(0.28, 0.32), Speed = NR(0), ZOffset = 1, Brightness = 2}, 1)
+ 	-- 3 ground ring (flat): velocity straight up + VelocityPerpendicular
+ 	if not o.NoGround then
+-		local ga, gatt = holder(Vector3.new(pos.X, pos.Y - (o.GroundDrop or scale * 0.9), pos.Z))
++		local ga, gatt = holder(groundAt(pos))
+ 		layer(gatt, {Texture = TEX.Ring, Color = CS(c1), Size = nseq({{0, scale * 0.8}, {1, scale * 5.5}}), Transparency = nseq({{0, 0.1}, {1, 1}}),
+ 			Lifetime = NR(0.45, 0.5), Speed = NR(0.01), EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.zero,
+ 			Orientation = Enum.ParticleOrientation.VelocityPerpendicular, Brightness = 1.5}, 1)
+@@ -176,7 +193,7 @@
+ 			Transparency = nseq({{0, 0.2}, {1, 1}}), Lifetime = NR(0.6, 1), Speed = NR(scale * 2, scale * 5), SpreadAngle = Vector2.new(180, 180), Rotation = NR(0, 360)}, 10)
+ 	end
+ 	-- a quick light pop
+-	local l = Instance.new("PointLight"); l.Color = c1; l.Range = scale * 8; l.Brightness = 4; l.Shadows = false; l.Parent = a
++	local l = Instance.new("PointLight"); l.Color = c1; l.Range = math.min(scale * 5, 24); l.Brightness = 1.25; l.Shadows = false; l.Parent = a
+ 	tw(l, 0.35, {Brightness = 0})
+ 	Debris:AddItem(a, 1.6)
+ end
+@@ -224,7 +241,7 @@
+ 	-- glow halo that follows the orb
+ 	local halo = Instance.new("ParticleEmitter")
+ 	halo.Texture = TEX.Glow; halo.Color = CS(c1); halo.LightEmission = 1; halo.Brightness = 2; halo.LockedToPart = true
+-	halo.Size = NS((big and 6 or 3.5)); halo.Transparency = nseq({{0, 0.3}, {1, 1}}); halo.Lifetime = NR(0.12); halo.Rate = 30; halo.Speed = NR(0)
++	halo.Size = NS((big and 4.8 or 2.5)); halo.Transparency = nseq({{0, 0.3}, {1, 1}}); halo.Lifetime = NR(0.12); halo.Rate = 30; halo.Speed = NR(0)
+ 	halo.Parent = center
+ 	-- body particles by element
+ 	local body = Instance.new("ParticleEmitter")
+@@ -240,6 +257,19 @@
+ 	end
+ 	body.Transparency = nseq({{0, 0}, {1, 1}})
+ 	body.Parent = center
++	if el == "fire" then
++		local embers = Instance.new("ParticleEmitter")
++		embers.Name = "FireTail"; embers.Texture = TEX.Spark
++		embers.Color = CS(Color3.fromRGB(255, 237, 149), c1)
++		embers.LightEmission = 1; embers.Brightness = 1.5
++		embers.Size = nseq({{0, big and 0.5 or 0.28}, {1, 0}})
++		embers.Transparency = nseq({{0, 0}, {1, 1}})
++		embers.Lifetime = NR(0.18, 0.35); embers.Speed = NR(1, 3)
++		embers.Rate = V.Reduced and 8 or (big and 32 or 16)
++		embers.SpreadAngle = Vector2.new(45, 45)
++		embers.Orientation = Enum.ParticleOrientation.VelocityParallel
++		embers.Parent = center
++	end
+ 	local l = Instance.new("PointLight"); l.Color = c1; l.Range = big and 16 or 10; l.Brightness = 2.5; l.Shadows = false; l.Parent = o
+ 	return o
+ end
+@@ -252,7 +282,7 @@
+ 	local t0 = os.clock()
+ 	local conn
+ 	conn = RunService.RenderStepped:Connect(function(dt)
+-		if not tgt.Parent or os.clock() - t0 > 3 then conn:Disconnect(); o:Destroy(); return end
++		if not o.Parent or not tgt:IsDescendantOf(workspace) or os.clock() - t0 > 3 then conn:Disconnect(); o:Destroy(); return end
+ 		local to = tgt.Position - pos
+ 		if to.Magnitude < speed * dt + 1 then conn:Disconnect(); o:Destroy(); return end
+ 		pos += to.Unit * speed * dt
+@@ -769,7 +799,7 @@
+ 	fxBurst(pos, c1, c2, math.clamp(radius / 2.5, 2, 9), el, {Sparks = 34, Embers = 22, Smoke = 14, GroundDrop = math.max(pos.Y - 0.2, 0.5)})
+ 	-- lingering column of smoke / flame for the big ones
+ 	if radius >= 12 then
+-		local a, att = holder(Vector3.new(pos.X, pos.Y - math.max(pos.Y - 0.5, 0), pos.Z))
++		local a, att = holder(groundAt(pos))
+ 		local e = Instance.new("ParticleEmitter")
+ 		e.Texture = el == "fire" and TEX.Flame or TEX.Smoke
+ 		e.Color = el == "fire" and CS(Color3.fromRGB(255, 220, 140), c1) or CS(darker(c1, 0.5), Color3.fromRGB(70, 70, 76))
+@@ -808,6 +838,7 @@
+ 	gather.Parent = shape
+ 	task.delay(t, function()
+ 		gather.Enabled = false; sw.Enabled = false
++		if not hand:IsDescendantOf(workspace) or not char:IsDescendantOf(workspace) then return end
+ 		fxBurst(hand.Position, c1, c2, 1.2, elementOf(id), {NoGround = true, Sparks = 10, Embers = 6, Smoke = 2})
+ 	end)
+ 	Debris:AddItem(att, t + 0.6)
+--- a/scripts/ServerScriptService/Services/EnemyService.luau
++++ b/scripts/ServerScriptService/Services/EnemyService.luau
+@@ -35,6 +35,7 @@
+ 	if shape then p.Shape = shape end
+ 	p.CanCollide = false
+ 	p.CanQuery = false
++	p.CanTouch = false
+ 	p.Massless = true
+ 	p.CFrame = to.CFrame * offset
+ 	local w = Instance.new("WeldConstraint")
+@@ -93,9 +94,24 @@
+ 		weldPart(model, head, Vector3.new(0.11, 0.15, 0.06), CFrame.new(side * 0.27, 0.04, -0.73), isBoss and st.Gate or Color3.fromRGB(205, 45, 65), isBoss and Enum.Material.Neon or Enum.Material.SmoothPlastic)
+ 		weldPart(model, torso, Vector3.new(0.64, 0.82, 0.14), CFrame.new(side * 0.55, -0.15, -0.65), shade(outfit, 1.25))
+ 	end
++	-- Fine face and costume details follow existing animated body parts.
++	for _, side in {-1, 1} do
++		weldPart(model, head, Vector3.new(0.045, 0.12, 0.065), CFrame.new(side * 0.27, 0.04, -0.77), Color3.fromRGB(20, 17, 27))
++		weldPart(model, head, Vector3.new(0.34, 0.055, 0.065), CFrame.new(side * 0.27, 0.165, -0.73) * CFrame.Angles(0, 0, side * 0.12), hairCol)
++		local arm = model:FindFirstChild(side == -1 and "LeftLowerArm" or "RightLowerArm")
++		if arm then
++			weldPart(model, arm, Vector3.new(0.87, 0.6, 0.88), CFrame.new(0, -0.18, 0), shade(outfit, 0.55))
++			weldPart(model, arm, Vector3.new(0.89, 0.12, 0.9), CFrame.new(0, -0.35, 0), Color3.fromRGB(209, 202, 185))
++		end
++	end
++	weldPart(model, torso, Vector3.new(0.1, 1.2, 0.12), CFrame.new(0, -0.08, -0.68), Color3.fromRGB(190, 185, 169))
++	local pouch = weldPart(model, torso, Vector3.new(0.45, 0.5, 0.35), CFrame.new(0.83, -0.7, 0.56), Color3.fromRGB(92, 65, 43))
++	pouch.Name = "BeltPouch"
+ 	if isBoss then
+ 		weldPart(model, torso, Vector3.new(2.4, 3, 0.2), CFrame.new(0, -1.2, 0.7) * CFrame.Angles(0.15, 0, 0), st.Gate)
+ 		local aura = Instance.new("ParticleEmitter")
++		aura.Texture = "rbxassetid://118322217786922"
++		aura.Name = "BossEmbers"
+ 		aura.Color = ColorSequence.new(st.Gate)
+ 		aura.LightEmission = 1
+ 		aura.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0)})
+--- a/scripts/ServerScriptService/Services/AbilityService.luau
++++ b/scripts/ServerScriptService/Services/AbilityService.luau
+@@ -130,7 +130,7 @@
+ 	if not target then return false end
+ 	vfx("Charge", j.Id, p.Character, 0.35)
+ 	task.delay(0.35, function()
+-		if target.Dead or not hrp.Parent then return end
++		if target.Dead or rootOf(p) ~= hrp or p:GetAttribute("InLobby") or target.Stage ~= p:GetAttribute("InStage") then return end
+ 		local tp = target.Root.Position
+ 		local dir = flat(tp - hrp.Position)
+ 		vfx("Dash", j.Id, hrp.Position, tp - dir * 3)
+@@ -145,9 +145,10 @@
+ local function cloneModel(p: Player): Model?
+ 	local char = p.Character
+ 	if not char then return nil end
++	local wasArchivable = char.Archivable
+ 	char.Archivable = true
+ 	local c = char:Clone()
+-	char.Archivable = false
++	char.Archivable = wasArchivable
+ 	if not c then return nil end
+ 	for _, d in c:GetDescendants() do
+ 		if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ModuleScript") then d:Destroy()
+@@ -177,7 +178,7 @@
+ 		task.spawn(function()
+ 			local stop = os.clock() + j.Duration
+ 			local hum = c:FindFirstChildOfClass("Humanoid")
+-			while c.Parent and os.clock() < stop do
++			while c.Parent and rootOf(p) == hrp and not p:GetAttribute("InLobby") and os.clock() < stop do
+ 				local croot = c.PrimaryPart :: BasePart
+ 				local e = EnemyService.Nearest(croot.Position, j.Range, nil, p)
+ 				if e and hum then
+@@ -498,8 +499,9 @@
+ 	vfx("Susanoo", p.Character, j.Duration)
+ 	task.spawn(function()
+ 		local stop = os.clock() + j.Duration
+-		while os.clock() < stop and hrp.Parent do
++		while os.clock() < stop and rootOf(p) == hrp and not p:GetAttribute("InLobby") do
+ 			task.wait(1)
++			if rootOf(p) ~= hrp or p:GetAttribute("InLobby") then break end
+ 			local e = EnemyService.Nearest(hrp.Position, j.Range, nil, p)
+ 			if e then
+ 				local dir = flat(e.Root.Position - hrp.Position)
+@@ -580,10 +582,25 @@
+ 	GameService.Notify(p, "CooldownSync", out)
+ end
+ 
++-- Temporary shields, transformations and companions belong to one character life.
++local function clearCharacterEffects(p: Player)
++	local b = buffs[p]
++	if b then
++		for _, wall in b.Walls do if wall.Parent then wall:Destroy() end end
++	end
++	buffs[p] = nil
++	for _, model in summons[p] or {} do if model.Parent then model:Destroy() end end
++	summons[p] = nil
++end
++local function watchCharacter(p: Player)
++	p.CharacterRemoving:Connect(function() clearCharacterEffects(p) end)
++end
++Players.PlayerAdded:Connect(watchCharacter)
++for _, p in Players:GetPlayers() do watchCharacter(p) end
++
+ Players.PlayerRemoving:Connect(function(p)
+-	cooldowns[p] = nil; slotLockUntil[p] = nil; buffs[p] = nil; lastM1[p] = nil
+-	for _, m in summons[p] or {} do if m.Parent then m:Destroy() end end
+-	summons[p] = nil
++	clearCharacterEffects(p)
++	cooldowns[p] = nil; slotLockUntil[p] = nil; lastM1[p] = nil
+ end)
+ 
+ function AbilityService.Start() end
+--- a/scripts/ReplicatedStorage/Shared/Assets.luau
++++ b/scripts/ReplicatedStorage/Shared/Assets.luau
+@@ -90,7 +90,16 @@
+ 	Wind = "rbxassetid://108469459484231",
+ }
+ function Assets.Icon(name: string?): string
+-	if name == "HandSign" then return Assets.SignIcons and Assets.SignIcons.Tiger or "" end -- our own hand art
++	if name == "HandSign" then -- Approved attack art is mapped by Config.Jutsu id, never by the equipped hand.
++-- Populate only with actual uploaded image IDs from the approved 28-icon set.
++Assets.JutsuIconsById = {}
++function Assets.AttackIcon(jutsuId, signId)
++	local image = Assets.JutsuIconsById[jutsuId]
++	if type(image) == "string" and image:match("^rbxassetid://%d+$") then return image end
++	return Assets.SignIcons[signId] or Assets.Icon("Chakra")
++end
++
++return Assets.SignIcons and Assets.SignIcons.Tiger or "" end -- our own hand art
+ 	return (name and (Assets.IconsOutline[name] or Assets.Icons[name])) or ""
+ end
+ -- Hand-sign artwork: cartoon version (owner 2026-11-02 "more cartoonified"): the approved hands-only sheet run through
+@@ -123,4 +132,13 @@
+ 	Smoke = "rbxassetid://78579475702105",
+ 	Swirl = "rbxassetid://98358801781376",
+ }
++-- Approved attack art is mapped by Config.Jutsu id, never by the equipped hand.
++-- Populate only with actual uploaded image IDs from the approved 28-icon set.
++Assets.JutsuIconsById = {}
++function Assets.AttackIcon(jutsuId, signId)
++	local image = Assets.JutsuIconsById[jutsuId]
++	if type(image) == "string" and image:match("^rbxassetid://%d+$") then return image end
++	return Assets.SignIcons[signId] or Assets.Icon("Chakra")
++end
++
+ return Assets
+--- /dev/null
++++ b/scripts/ServerStorage/Tools/ReferenceMapPolish.luau
+@@ -0,0 +1,112 @@
++-- Reversible edit-time finish pass. Never rebuilds stages, spawns, gates or stations.
++-- Run ApplyRange in batches; Restore returns every edited property and archives additions.
++local Config = require(game.ReplicatedStorage.Shared.Config)
++local M = {}
++local PREFIX = "ReferenceFinishOriginal_"
++local function set(part, property, value)
++	if part:GetAttribute(PREFIX .. property) == nil then
++		local old = part[property]
++		part:SetAttribute(PREFIX .. property, typeof(old) == "EnumItem" and old.Name or old)
++	end
++	part[property] = value
++end
++local function shade(c, f) return Color3.new(c.R * f, c.G * f, c.B * f) end
++local function earth(st)
++	-- Warm soil beneath green biomes; retain ice, desert, volcanic and supernatural palettes.
++	local c = st.Cliff
++	if c.G > c.R * 1.15 and c.G > c.B * 1.15 then return Color3.fromRGB(146, 83, 56) end
++	return c:Lerp(Color3.fromRGB(108, 86, 77), 0.22)
++end
++local function add(parent, name, size, pos, color)
++	local p = Instance.new("Part")
++	p.Name = name; p.Size = size; p.Position = pos; p.Color = color
++	p.Anchored = true; p.CanCollide = false; p.CanTouch = false; p.CanQuery = false
++	p.Material = Enum.Material.Plastic; p.TopSurface = Enum.SurfaceType.Studs
++	p.BottomSurface = Enum.SurfaceType.Smooth; p.Parent = parent
++	return p
++end
++function M.ApplyStage(stage, index)
++	local st = Config.Stages[index]
++	if not st then return end
++	local soil = earth(st)
++	local cliffs = stage:FindFirstChild("Cliffs")
++	if cliffs then
++		for _, p in cliffs:GetDescendants() do
++			if p:IsA("BasePart") then
++				if p.Name == "Cliff" then
++					set(p, "Color", shade(soil, 0.82 + math.clamp(p.Position.Y / 80, 0, 0.14)))
++				elseif p.Name == "Ledge" then
++					set(p, "Color", st.Ground); set(p, "TopSurface", Enum.SurfaceType.Studs)
++				elseif p.Size.X >= Config.StageLength - 1 and p.Position.Y > 20 then
++					-- Existing red perimeter wall becomes the upper earth/grass terrace.
++					set(p, "Color", p.Size.Y <= 2 and st.Ground or soil)
++				end
++			end
++		end
++	end
++	if index == 1 then
++		local additions = stage:FindFirstChild("ReferenceEntranceFinish")
++		if not additions then
++			additions = Instance.new("Model"); additions.Name = "ReferenceEntranceFinish"
++			additions.Parent = stage
++			for _, wall in stage:GetChildren() do
++				if wall:IsA("BasePart") and wall.Name == "StartWall" then
++					for _, face in {-1, 1} do
++						for band = 1, 3 do
++							for segment = 1, 3 do
++								local width = wall.Size.Z / 3
++								local z = wall.Position.Z - wall.Size.Z / 2 + width * (segment - 0.5)
++								local h = 8 + ((segment + band) % 2)
++								local top = band * 10
++								local x = wall.Position.X + face * (wall.Size.X / 2 + (4 - band) * 0.55)
++								add(additions, "EarthFace", Vector3.new((4-band)*1.1, h, width-0.12), Vector3.new(x,top-h/2,z), shade(soil,0.88+segment*0.035))
++								add(additions, "GrassShelf", Vector3.new((4-band)*1.1+0.7,0.8,width),Vector3.new(x,top+0.15,z),st.Ground)
++							end
++						end
++					end
++				end
++			end
++		end
++		for _, p in stage:GetChildren() do
++			if p:IsA("BasePart") then
++				if p.Name == "StartWall" or p.Name == "StartWallLintel" then
++					set(p,"Color",soil); set(p,"Material",Enum.Material.Plastic)
++				elseif p.Name == "Part" and p.Size == Vector3.new(6,6,48) then
++					set(p,"Color",st.Ground); set(p,"TopSurface",Enum.SurfaceType.Studs)
++				end
++			end
++		end
++	end
++	stage:SetAttribute("ReferenceFinishVersion", 1)
++end
++function M.ApplyRange(first, last)
++	assert(first >= 1 and last <= Config.StageCount and first <= last)
++	for i = first, last do
++		local stage = workspace.StageCourse:FindFirstChild(string.format("Stage%02d", i))
++		if stage then M.ApplyStage(stage, i) end
++		task.wait()
++	end
++end
++function M.Restore()
++	local archive = Instance.new("Folder"); archive.Name = "ReferenceFinishArchived"
++	archive.Parent = game.ServerStorage.Backups
++	for _, stage in workspace.StageCourse:GetChildren() do
++		for _, p in stage:GetDescendants() do
++			if p:IsA("BasePart") then
++				for property, value in p:GetAttributes() do
++					if property:sub(1,#PREFIX) == PREFIX then
++						local key = property:sub(#PREFIX+1)
++						if key == "Material" then value = Enum.Material[value]
++						elseif key == "TopSurface" then value = Enum.SurfaceType[value] end
++						p[key] = value; p:SetAttribute(property,nil)
++					end
++				end
++			end
++		end
++		local additions = stage:FindFirstChild("ReferenceEntranceFinish")
++		if additions then additions.Parent = archive end
++		stage:SetAttribute("ReferenceFinishVersion",nil)
++		task.wait()
++	end
++end
++return M

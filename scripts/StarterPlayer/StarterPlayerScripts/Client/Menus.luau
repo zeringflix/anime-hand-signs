@@ -91,7 +91,7 @@ function M.Init(c)
 	ctx = c
 	root = U.new("Frame", {Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.6, 0.74),
 		BackgroundColor3 = C(18, 18, 22), BackgroundTransparency = 0.12, Visible = false, Parent = c.Gui, ZIndex = 5})
-	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(1060, 720), Parent = root})
+	U.new("UISizeConstraint", {MinSize = Vector2.new(280, 240), MaxSize = Vector2.new(1060, 1100), Parent = root})
 	U.corner(6).Parent = root
 	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = root
 	local bodyRim = U.new("Frame", {Name = "BodyRim", Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
@@ -119,15 +119,27 @@ function M.Init(c)
 	local function fit()
 		local cam = workspace.CurrentCamera
 		local v = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		local compact = current == "Rebirth" or current == "Codes" -- owner: Codes small + compact like Rebirth
-		if v.X < 900 then root.Size = compact and UDim2.fromScale(0.84, 0.6) or UDim2.fromScale(0.92, 0.86)
-		elseif current == "Codes" then root.Size = UDim2.fromScale(0.42, 0.36)
-		elseif current == "Settings" then root.Size = UDim2.fromScale(0.56, 0.6)
-		else root.Size = compact and UDim2.fromScale(0.46, 0.46) or UDim2.fromScale(0.7, 0.82) end
+		local compact = current == "Rebirth" or current == "Codes"
+		local scale = c.Gui:FindFirstChild("ResponsiveScale")
+		local s = scale and scale.Scale or 1
+		local portrait = v.Y > v.X
+		local desiredWidth = current == "Auras" and 530 or (compact and 620 or 940)
+		if current == "Settings" then desiredWidth = 760 end
+		local desiredHeight = current == "Codes" and 330 or (current == "Rebirth" and 420 or 650)
+		local width = portrait and v.X * 0.9 / s or math.min(desiredWidth, v.X * 0.82 / s)
+		local height = portrait and math.min(1000, v.Y * 0.73 / s) or math.min(desiredHeight, (v.Y - 110) / s)
+		root.Size = UDim2.fromOffset(width, height)
+		close.Size = UDim2.fromOffset(portrait and 70 or 56, portrait and 70 or 56)
+		headerFrame.Size = UDim2.new(1, 0, 0, portrait and 88 or 72)
+		body.Position = UDim2.fromOffset(14, portrait and 104 or 88)
+		body.Size = UDim2.new(1, -28, 1, -(portrait and 116 or 100))
 	end
 	M.Fit = fit
 	fit()
-	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
+	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		fit()
+		if root.Visible then task.defer(M.Refresh) end
+	end) end
 end
 
 function M.IsOpen() return root.Visible end
@@ -300,7 +312,8 @@ builders.Signs = function(parent)
 	local k, node = 1, parent :: Instance?
 	while node do local us = node:FindFirstChildOfClass("UIScale"); if us and us.Scale > 0 then k *= us.Scale end; node = node.Parent; if node and node:IsA("PlayerGui") then break end end
 	local w = parent.AbsoluteSize.X / k
-	local cols = w < 380 and 2 or (w < 560 and 3 or 4)
+	local vp = workspace.CurrentCamera.ViewportSize
+	local cols = vp.X < 600 and 2 or (w < 560 and 3 or 4)
 	local cellW = math.max(80, (w - 16 - 10 * cols) / cols)
 	U.new("UIGridLayout", {CellSize = UDim2.fromOffset(cellW, math.floor(cellW / 0.92)), CellPadding = UDim2.fromOffset(10, 10), FillDirectionMaxCells = cols, SortOrder = Enum.SortOrder.LayoutOrder,
 		HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = parent})
@@ -480,17 +493,17 @@ builders.Auras = function(parent)
 		U.corner(6).Parent = iconBox
 		U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon("Aura"), ImageColor3 = a.Color:Lerp(Color3.new(1, 1, 1), 0.15), ScaleType = Enum.ScaleType.Fit,
 			Size = UDim2.fromScale(0.9, 0.9), Position = UDim2.fromScale(0.05, 0.05), ZIndex = 7, Parent = iconBox})
-		local n = label(f, a.Name, UDim2.fromOffset(94, 10), UDim2.new(0.42, -94, 0, 36), nil, Enum.TextXAlignment.Left, 3.5); n.ZIndex = 6
-		local m = label(f, "x" .. a.Mult .. " Hand Signs", UDim2.fromOffset(94, 48), UDim2.new(0.42, -94, 0, 26), C(255, 225, 90), Enum.TextXAlignment.Left, 2.5); m.ZIndex = 6
+		local n = label(f, a.Name, UDim2.fromOffset(94, 10), UDim2.new(1, -228, 0, 30), nil, Enum.TextXAlignment.Left, 3.5); n.ZIndex = 6
+		local m = label(f, "x" .. a.Mult .. " Hand Signs", UDim2.fromOffset(94, 40), UDim2.new(1, -228, 0, 22), C(255, 225, 90), Enum.TextXAlignment.Left, 2.5); m.ZIndex = 6
 		if not has then
-			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " TROPHIES") or ("STAGE " .. a.Stage), UDim2.new(0.42, 0, 0.5, -16), UDim2.new(0.24, 0, 0, 32), Color3.new(1, 1, 1), Enum.TextXAlignment.Right, 3)
+			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " TROPHIES") or ("STAGE " .. a.Stage), UDim2.fromOffset(94, 66), UDim2.new(1, -228, 0, 20), C(230, 235, 255), Enum.TextXAlignment.Left, 1.5)
 			pr.ZIndex = 6
 		end
 		local text, col
 		if has then text, col = eq and "UNEQUIP" or "EQUIP", eq and C(235, 90, 70) or U.GREEN
 		elseif highest >= a.Stage then text, col = "BUY", U.ORANGE
 		else text, col = "LOCKED", U.GREY end
-		local b = U.button({Text = text, Color = col, Size = UDim2.new(0.28, 0, 0, 60), Position = UDim2.new(1, -10, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Radius = 6, StrokeT = 3, Parent = f})
+		local b = U.button({Text = text, Color = col, Size = UDim2.fromOffset(116, 52), Position = UDim2.new(1, -10, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Radius = 6, StrokeT = 3, Parent = f})
 		b.ZIndex = 7
 		studs(b, 0.35, 18)
 		b.MouseButton1Click:Connect(function()

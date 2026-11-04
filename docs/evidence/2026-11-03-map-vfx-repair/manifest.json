@@ -1,0 +1,45 @@
+{
+  "placeId": 72288975594385,
+  "sourceFiles": [
+    {
+      "path": "scripts/StarterPlayer/StarterPlayerScripts/Client/Presentation.luau",
+      "sha256": "fc3060a395bd75218bb859e88c661a04944e1dda535ebd307366fb2031238c22",
+      "bytes": 2206
+    },
+    {
+      "path": "scripts/StarterPlayer/StarterPlayerScripts/Client/Main.luau",
+      "sha256": "63f60e098398dbe9ef45e7d09501cc649b84439331d1960197678cef9748eb2f",
+      "bytes": 31685
+    },
+    {
+      "path": "scripts/StarterPlayer/StarterPlayerScripts/Client/VFX.luau",
+      "sha256": "6bd1927188176fd6f05c3fa39efe7f909df417187fdf06bcf56c1c366b774c83",
+      "bytes": 46711
+    },
+    {
+      "path": "scripts/ServerScriptService/Services/EnemyService.luau",
+      "sha256": "5e027df5864c239b2f2fc9fb6571322a689bc9b314b8ae1c29bdabe013d526b0",
+      "bytes": 28262
+    },
+    {
+      "path": "scripts/ServerScriptService/Services/AbilityService.luau",
+      "sha256": "2b81f099fc71b51ec5ac614b818ba3cd7c023fd2d55eb53f31f410600dd591d3",
+      "bytes": 23692
+    },
+    {
+      "path": "scripts/ReplicatedStorage/Shared/Assets.luau",
+      "sha256": "eee579ff72b6bc2050d71fa3ef5d11d94099111c082d2549beb29ced4951e803",
+      "bytes": 8560
+    },
+    {
+      "path": "scripts/ServerStorage/Tools/ReferenceMapPolish.luau",
+      "sha256": "6a3b980b5aac6af1eadb3419ca1f1c9ea7d0c7fb4f06e2e1c91516f9b581cb0f",
+      "bytes": 4485
+    }
+  ],
+  "stageCount": 50,
+  "spawnMarkers": 300,
+  "addedDecorativeParts": 72,
+  "productionDataAccess": false,
+  "published": false
+}

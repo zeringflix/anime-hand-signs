@@ -89,7 +89,7 @@ U.STUDS_PACK = "rbxassetid://89333738374139" -- Studs UI Pack 2 texture (kept fo
 function U.studs(parent: Instance, transp: number?, tile: number?): ImageLabel
 	local px = math.max(30, math.floor((tile or 34) * 1.35)) * U.STUDS_PER_SHEET -- tile = size of ONE stud
 	local s = U.new("ImageLabel", {Name = "Studs", BackgroundTransparency = 1, Image = U.STUDS, ScaleType = Enum.ScaleType.Tile,
-		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp((transp or 0.1) * 0.4, 0, 0.3), Size = UDim2.fromScale(1, 1), Parent = parent})
+		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp(transp or 0.35, 0.25, 0.8), Size = UDim2.fromScale(1, 1), Parent = parent})
 	if parent:IsA("GuiObject") then s.ZIndex = parent.ZIndex end
 	U.corner(8).Parent = s
 	return s
@@ -178,14 +178,14 @@ function U.button(props: {[string]: any}): (TextButton, TextLabel)
 	if props.Studs ~= false then U.studs(b, 0.3, props.StudTile or 20) end
 	local label = U.text({Name = "Label", Text = props.Text or "", Size = UDim2.new(1, -10, 0.74, -4), Position = UDim2.fromOffset(5, 3),
 		TextSize = props.TextSize, TextScaled = props.TextSize == nil, Stroke = props.TextStroke or 3, Parent = b})
-	local base = b.Size
+	local press = U.motionScale(b)
 	if props.Hover ~= false then U.hover(b, {Scale = props.HoverScale or 1.07, Tilt = props.HoverTilt or 0}) end
 	b.MouseButton1Down:Connect(function()
 		local okS, Sfx = pcall(require, script.Parent:FindFirstChild("Sfx"))
 		if okS and Sfx then Sfx.Play("Click") end
-		TweenService:Create(b, TweenInfo.new(0.06), {Size = UDim2.new(base.X.Scale * 0.94, base.X.Offset * 0.94, base.Y.Scale * 0.94, base.Y.Offset * 0.94)}):Play()
+		TweenService:Create(press, TweenInfo.new(0.06), {Scale = 0.94}):Play()
 	end)
-	local function up() TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Back), {Size = base}):Play() end
+	local function up() TweenService:Create(press, TweenInfo.new(0.12, Enum.EasingStyle.Back), {Scale = 1}):Play() end
 	b.MouseButton1Up:Connect(up)
 	b.MouseLeave:Connect(up)
 	return b, label

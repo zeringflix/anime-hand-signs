@@ -90,7 +90,16 @@ Assets.IconsOutline = {
 	Wind = "rbxassetid://108469459484231",
 }
 function Assets.Icon(name: string?): string
-	if name == "HandSign" then return Assets.SignIcons and Assets.SignIcons.Tiger or "" end -- our own hand art
+	if name == "HandSign" then -- Approved attack art is mapped by Config.Jutsu id, never by the equipped hand.
+-- Populate only with actual uploaded image IDs from the approved 28-icon set.
+Assets.JutsuIconsById = {}
+function Assets.AttackIcon(jutsuId, signId)
+	local image = Assets.JutsuIconsById[jutsuId]
+	if type(image) == "string" and image:match("^rbxassetid://%d+$") then return image end
+	return Assets.SignIcons[signId] or Assets.Icon("Chakra")
+end
+
+return Assets.SignIcons and Assets.SignIcons.Tiger or "" end -- our own hand art
 	return (name and (Assets.IconsOutline[name] or Assets.Icons[name])) or ""
 end
 -- Hand-sign artwork: cartoon version (owner 2026-11-02 "more cartoonified"): the approved hands-only sheet run through
@@ -123,4 +132,13 @@ Assets.FX = {
 	Smoke = "rbxassetid://78579475702105",
 	Swirl = "rbxassetid://98358801781376",
 }
+-- Approved attack art is mapped by Config.Jutsu id, never by the equipped hand.
+-- Populate only with actual uploaded image IDs from the approved 28-icon set.
+Assets.JutsuIconsById = {}
+function Assets.AttackIcon(jutsuId, signId)
+	local image = Assets.JutsuIconsById[jutsuId]
+	if type(image) == "string" and image:match("^rbxassetid://%d+$") then return image end
+	return Assets.SignIcons[signId] or Assets.Icon("Chakra")
+end
+
 return Assets

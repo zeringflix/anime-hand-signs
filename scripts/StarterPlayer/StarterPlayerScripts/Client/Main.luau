@@ -38,17 +38,9 @@ local _ = SoundService
 
 ---------------------------------------------------------------- root gui + scaling
 local gui = U.new("ScreenGui", {Name = "HUD", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = player:WaitForChild("PlayerGui")})
-local uiScale = U.new("UIScale", {Parent = gui})
-local function rescale()
-	local vp = workspace.CurrentCamera.ViewportSize
-	uiScale.Scale = math.clamp(math.min(vp.X / 1500, vp.Y / 820), 0.5, 1.25)
-end
-rescale()
-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
-local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-
+-- HUD owns viewport scaling and input badges; a second root scale breaks phone sizing.
 local E = HUDView.Build(gui)
-for _, b in {E.Attack, E.AbilityE, E.AbilityR} do b.Badge.Visible = not isTouch end
+task.spawn(function() require(Client:WaitForChild("Presentation")).Start() end)
 
 local ctx: any = {Gui = gui, Action = Remotes.Action, EquipSign = Remotes.EquipSign, TeleportStage = Remotes.TeleportStage, Profile = nil}
 ctx.SetHud = function(visible: boolean) E.SetHidden(not visible) end
@@ -188,9 +180,9 @@ local function refreshAbilities()
 	for _, pair in {{E.AbilityE, s.E}, {E.AbilityR, s.R}} do
 		local b, j = pair[1], Config.Jutsu[pair[2]]
 		b.Name.Text = j.Short
-		b.Icon.Image = (Assets.SignIcons and Assets.SignIcons[s.Id]) or Assets.Icon(Assets.JutsuIcon[j.Vfx] or "Chakra")
+		b.Icon.Image = Assets.AttackIcon(pair[2], s.Id)
 	end
-	-- one emblem motif: the equipped hand sign's icon on ATTACK, E and R (issue #14)
+	-- M1 keeps the equipped seal; E/R resolve independently from their actual jutsu IDs.
 	if Assets.SignIcons and Assets.SignIcons[s.Id] then E.Attack.Icon.Image = Assets.SignIcons[s.Id] end
 	if E.SignsIcon and Assets.SignIcons and Assets.SignIcons[s.Id] then E.SignsIcon.Image = Assets.SignIcons[s.Id] end
 end
@@ -292,18 +284,37 @@ local function cast(slot: string)
 	Sfx.Jutsu(j.Vfx)
 end
 
-E.Attack.Button.MouseButton1Click:Connect(primary)
+-- Hold repeats combat only. Training still comes from taps or the existing auto clicker.
+local heldPrimary: InputObject? = nil
+local function beginPrimary(input: InputObject)
+	if Menus.IsOpen() then return end
+	heldPrimary = input
+	primary()
+end
+E.Attack.Button.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then beginPrimary(input) end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input == heldPrimary or input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then heldPrimary = nil end
+end)
+UserInputService.WindowFocusReleased:Connect(function() heldPrimary = nil end)
+RunService.Heartbeat:Connect(function()
+	if not heldPrimary then return end
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if Menus.IsOpen() or not hum or hum.Health <= 0 then heldPrimary = nil; return end
+	attack()
+end)
 E.AbilityE.Button.MouseButton1Click:Connect(function() cast("E") end)
 E.AbilityR.Button.MouseButton1Click:Connect(function() cast("R") end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		if not Menus.IsOpen() then primary() end
+		if not Menus.IsOpen() then beginPrimary(input) end
 	elseif input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.ButtonX then cast("E")
 	elseif input.KeyCode == Enum.KeyCode.R or input.KeyCode == Enum.KeyCode.ButtonY then cast("R")
 	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonL2 then train()
-	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then primary()
+	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then beginPrimary(input)
 	elseif input.KeyCode == Enum.KeyCode.ButtonB and Menus.IsOpen() then Menus.Close()
 	end
 end)
