@@ -1,0 +1,485 @@
+--- baseline/ServerScriptService.Services.EnemyService.luau
++++ candidate/ServerScriptService.Services.EnemyService.luau
+@@ -75,14 +75,23 @@
+ 		weldPart(model, head, Vector3.new(1.3, 0.28, 1.3), CFrame.new(0, 0.2, 0), Color3.fromRGB(30, 50, 110))
+ 		weldPart(model, head, Vector3.new(0.7, 0.3, 0.1), CFrame.new(0, 0.2, -0.66), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
+ 	elseif variant == 2 then
+-		-- hood + mask
+-		weldPart(model, head, Vector3.new(1.45, 1.35, 1.45), CFrame.new(0, 0.12, 0.08), outfit)
++		-- Open-front hood: side/back pieces preserve the face and eye silhouette.
++		weldPart(model, head, Vector3.new(1.45, 0.3, 1.45), CFrame.new(0, 0.75, 0.08), outfit)
++		weldPart(model, head, Vector3.new(0.2, 1.15, 1.25), CFrame.new(-0.68, 0.1, 0.16), outfit)
++		weldPart(model, head, Vector3.new(0.2, 1.15, 1.25), CFrame.new(0.68, 0.1, 0.16), outfit)
++		weldPart(model, head, Vector3.new(1.25, 1.15, 0.2), CFrame.new(0, 0.1, 0.7), outfit)
+ 		weldPart(model, head, Vector3.new(1.05, 0.45, 0.1), CFrame.new(0, -0.25, -0.62), Color3.fromRGB(30, 30, 35))
+ 	else
+ 		-- straw hat / animal mask
+ 		weldPart(model, head, Vector3.new(2.6, 0.25, 2.6), CFrame.new(0, 0.75, 0), Color3.fromRGB(200, 170, 100))
+ 		weldPart(model, head, Vector3.new(1, 0.5, 1), CFrame.new(0, 1, 0), Color3.fromRGB(190, 160, 90))
+ 		weldPart(model, head, Vector3.new(0.95, 0.75, 0.1), CFrame.new(0, -0.05, -0.62), Color3.fromRGB(245, 245, 245))
++	end
++	-- Original eye details and outfit accents; no borrowed character assets.
++	for _, side in {-1, 1} do
++		weldPart(model, head, Vector3.new(0.32, 0.18, 0.055), CFrame.new(side * 0.27, 0.04, -0.69), Color3.fromRGB(245, 245, 245))
++		weldPart(model, head, Vector3.new(0.11, 0.15, 0.06), CFrame.new(side * 0.27, 0.04, -0.73), isBoss and st.Gate or Color3.fromRGB(205, 45, 65), isBoss and Enum.Material.Neon or Enum.Material.SmoothPlastic)
++		weldPart(model, torso, Vector3.new(0.64, 0.82, 0.14), CFrame.new(side * 0.55, -0.15, -0.65), shade(outfit, 1.25))
+ 	end
+ 	if isBoss then
+ 		weldPart(model, torso, Vector3.new(2.4, 3, 0.2), CFrame.new(0, -1.2, 0.7) * CFrame.Angles(0.15, 0, 0), st.Gate)
+@@ -122,9 +131,9 @@
+ local function makeBillboard(e: Enemy)
+ 	local bb = Instance.new("BillboardGui")
+ 	bb.Name = "Info"
+-	bb.Size = UDim2.fromOffset(170, 44)
++	bb.Size = UDim2.fromOffset(e.IsBoss and 176 or 132, e.IsBoss and 44 or 36)
+ 	bb.StudsOffsetWorldSpace = Vector3.new(0, e.IsBoss and 4.6 or 3.4, 0)
+-	bb.MaxDistance = 120
++	bb.MaxDistance = e.IsBoss and 100 or 65
+ 	bb.LightInfluence = 0
+ 	local nameL = Instance.new("TextLabel")
+ 	nameL.BackgroundTransparency = 1
+@@ -282,10 +291,12 @@
+ 	spawnedSets[key] = true
+ 	local sf = stageFolder(stage)
+ 	local spawns = sf and sf:FindFirstChild("EnemySpawns")
+-	if not spawns then return end
++	if not spawns then spawnedSets[key] = nil; return end
+ 	GameService.ResetStageKills(owner, stage) -- a fresh set: the gate opens when every enemy of THIS set is dead
+ 	local hasBoss = Config.HasBoss(stage)
+-	for _, sp in spawns:GetChildren() do
++	local spawnList = spawns:GetChildren()
++	table.sort(spawnList, function(a, b) return a.Name < b.Name end)
++	for _, sp in spawnList do
+ 		if sp:IsA("BasePart") and (sp.Name ~= "Boss" or hasBoss) then task.spawn(EnemyService.Spawn, stage, sp, owner) end
+ 	end
+ end
+@@ -424,7 +435,21 @@
+ 	local flat = Vector3.new(hrp.Position.X - e.Root.Position.X, 0, hrp.Position.Z - e.Root.Position.Z)
+ 	tdist = flat.Magnitude
+ 	if tdist > reach - 1 then
+-		e.Hum:MoveTo(hrp.Position - (tdist > 0.1 and flat.Unit or Vector3.zero) * (reach - 1.5))
++		local destination = hrp.Position - (tdist > 0.1 and flat.Unit or Vector3.zero) * (reach - 1.5)
++		-- Local separation prevents all five non-colliding rigs occupying one point.
++		local separation = Vector3.zero
++		for _, other in EnemyService.Enemies do
++			if other ~= e and other.Owner == owner and other.Stage == e.Stage and not other.Dead then
++				local delta = e.Root.Position - other.Root.Position
++				local d = Vector3.new(delta.X, 0, delta.Z)
++				if d.Magnitude < 4 then
++					local direction = d.Magnitude > 0.1 and d.Unit or Vector3.new(0, 0, e.Id < other.Id and -1 or 1)
++					separation += direction * (4 - d.Magnitude)
++				end
++			end
++		end
++		if separation.Magnitude > 4 then separation = separation.Unit * 4 end
++		e.Hum:MoveTo(destination + separation)
+ 	else
+ 		e.Hum:MoveTo(e.Root.Position)
+ 		if tdist > 0.1 then e.Root.CFrame = CFrame.lookAt(e.Root.Position, e.Root.Position + flat) end -- face the player
+@@ -457,7 +482,7 @@
+ 						local c = p.Character
+ 						local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
+ 						local h = c and c:FindFirstChildOfClass("Humanoid")
+-						if r and h and (r.Position - at).Magnitude < 9 then hurtPlayer(p, h, e.Damage) end
++						if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 9 then hurtPlayer(p, h, e.Damage) end
+ 					end
+ 				end)
+ 			end
+@@ -473,7 +498,7 @@
+ 					local c = p.Character
+ 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
+ 					local h = c and c:FindFirstChildOfClass("Humanoid")
+-					if r and h and (r.Position - at).Magnitude < 30 then
++					if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 30 then
+ 						hurtPlayer(p, h, e.Damage * 2.5)
+ 						-- characters are client-owned, so the owner applies the knockback
+ 						local dir = Vector3.new(r.Position.X - at.X, 0, r.Position.Z - at.Z)
+@@ -491,7 +516,7 @@
+ 			e.Model:SetAttribute("AttackAt", workspace:GetServerTimeNow())
+ 			GameService.Remotes.Vfx:FireClient(target, "EnemyMelee", e.Model, st.Element)
+ 			task.delay(0.25, function()
+-				if e.Dead or hum.Health <= 0 then return end
++				if e.Dead or hum.Health <= 0 or target.Character ~= hum.Parent or playerStage(target) ~= e.Stage then return end
+ 				-- the hit only lands if the player is still in reach, in front of the enemy and at the same height
+ 				local d = hrp.Position - e.Root.Position
+ 				local fl = Vector3.new(d.X, 0, d.Z)
+@@ -509,13 +534,13 @@
+ 					local c = p.Character
+ 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
+ 					local h = c and c:FindFirstChildOfClass("Humanoid")
+-					if r and h and (r.Position - at).Magnitude < 12 then hurtPlayer(p, h, e.Damage * 1.5) end
++					if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 12 then hurtPlayer(p, h, e.Damage * 1.5) end
+ 				end
+ 			end)
+ 			if e.Stage == Config.StageCount and math.random() < 0.4 then
+ 				-- final boss teleports behind the player
+ 				task.delay(1.2, function()
+-					if e.Dead or not hrp.Parent then return end
++					if e.Dead or not hrp.Parent or target.Character ~= hrp.Parent or playerStage(target) ~= e.Stage then return end
+ 					GameService.Remotes.Vfx:FireClient(target, "Flicker", e.Root.Position, st.Gate)
+ 					e.Root.CFrame = hrp.CFrame * CFrame.new(0, 0, 8)
+ 				end)
+--- baseline/StarterPlayer.StarterPlayerScripts.Client.HUD.luau
++++ candidate/StarterPlayer.StarterPlayerScripts.Client.HUD.luau
+@@ -99,7 +99,7 @@
+ 	E.PromoPrice = U.text({Text = "15 MINUTES", Size = UDim2.new(1, -16, 0.32, 0), Position = UDim2.new(0, 8, 0.6, 0), TextColor3 = C(130, 255, 110), Stroke = 3, Parent = E.Promo})
+ 
+ 	---------------------------------------------------------------- top centre: event / boss bar + objective
+-	local boss = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 10), Size = UDim2.fromOffset(460, 60), BackgroundTransparency = 1, Visible = false, Parent = gui})
++	local boss = U.new("Frame", {Name = "Boss", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 10), Size = UDim2.fromOffset(460, 60), BackgroundTransparency = 1, Visible = false, Parent = gui})
+ 	E.BossName = U.text({Text = "BOSS", Size = UDim2.fromOffset(300, 26), TextColor3 = C(255, 150, 40), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3, Parent = boss})
+ 	local back = U.new("Frame", {Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = C(60, 55, 70), Parent = boss})
+ 	U.corner(21).Parent = back
+@@ -110,13 +110,13 @@
+ 	E.BossHp = U.text({Text = "", Size = UDim2.new(1, -20, 1, -8), Position = UDim2.fromOffset(10, 4), Stroke = 3, Parent = back})
+ 	E.Boss = boss
+ 
+-	local banner = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 92), Size = UDim2.fromOffset(640, 46), BackgroundColor3 = C(15, 25, 45), BackgroundTransparency = 0.5, BorderSizePixel = 0, Visible = false, Parent = gui})
++	local banner = U.new("Frame", {Name = "Objective", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -40, 0, 92), Size = UDim2.fromOffset(640, 46), BackgroundColor3 = C(15, 25, 45), BackgroundTransparency = 0.5, BorderSizePixel = 0, Visible = false, Parent = gui})
+ 	E.BannerFrame = banner
+ 	U.new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.15, 0), NumberSequenceKeypoint.new(0.85, 0), NumberSequenceKeypoint.new(1, 1)}), Parent = banner})
+ 	E.Banner = U.text({Text = "", Size = UDim2.new(1, -40, 1, -8), Position = UDim2.fromOffset(20, 4), Stroke = 3, Parent = banner})
+ 
+ 	---------------------------------------------------------------- bottom centre
+-	local bc = U.new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, -90, 1, -10), Size = UDim2.fromOffset(660, 270), BackgroundTransparency = 1, Parent = gui})
++	local bc = U.new("Frame", {Name = "Progress", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, -90, 1, -10), Size = UDim2.fromOffset(660, 270), BackgroundTransparency = 1, Parent = gui})
+ 	local function stat(y: number, color: Color3, size: number)
+ 		return U.text({Text = "", Position = UDim2.fromOffset(20, y), Size = UDim2.fromOffset(260, size), TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5, Parent = bc})
+ 	end
+@@ -124,10 +124,10 @@
+ 	E.Multiplier = stat(32, C(255, 230, 60), 26)
+ 	E.PetsMult = stat(84, C(255, 170, 60), 24)
+ 	E.RebirthMult = stat(110, C(200, 120, 255), 24)
+-	local bigRow = U.new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(500, 72), BackgroundTransparency = 1, Parent = bc})
++	local bigRow = U.new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 70), Size = UDim2.fromOffset(420, 72), BackgroundTransparency = 1, Parent = bc})
+ 	U.new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = bigRow})
+-	E.BigIcon = img({Icon = "Chakra", Size = UDim2.fromOffset(72, 72), LayoutOrder = 1, Parent = bigRow})
+-	E.BigCount = U.text({Text = "0 Hand Signs", Font = U.TitleFont, TextScaled = false, TextSize = 54, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 64), TextColor3 = C(120, 255, 110), Stroke = 5, LayoutOrder = 2, Parent = bigRow})
++	E.BigIcon = img({Icon = "Chakra", Size = UDim2.fromOffset(66, 66), LayoutOrder = 1, Parent = bigRow})
++	E.BigCount = U.text({Text = "0 Hand Signs", Font = U.TitleFont, TextScaled = true, TextSize = 48, Size = UDim2.fromOffset(345, 64), TextColor3 = C(120, 255, 110), Stroke = 5, LayoutOrder = 2, Parent = bigRow})
+ 	E.BigScale = U.new("UIScale", {Parent = E.BigCount})
+ 
+ 	local lvl = U.new("Frame", {Position = UDim2.fromOffset(40, 142), Size = UDim2.new(1, -40, 0, 58), BackgroundColor3 = C(70, 70, 85), Parent = bc})
+@@ -156,7 +156,7 @@
+ 	end
+ 
+ 	---------------------------------------------------------------- bottom right: abilities
+-	local br = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.fromOffset(460, 290), BackgroundTransparency = 1, Parent = gui})
++	local br = U.new("Frame", {Name = "Combat", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.fromOffset(460, 290), BackgroundTransparency = 1, Parent = gui})
+ 	local function ability(size: number, pos: UDim2, color: {Color3}, key: string)
+ 		local b, ic, lb = tile(br, color, "", "", Vector2.new(size, size))
+ 		b.AnchorPoint = Vector2.new(1, 1)
+@@ -174,13 +174,16 @@
+ 	end
+ 	E.Attack = ability(150, UDim2.new(1, 0, 1, 0), U.TONES.Gold, "M1")
+ 	E.Attack.Icon.Image = Assets.Icon("Fist")
++	E.Attack.Button.Name = "Attack"
+ 	E.Attack.Name.Text = "ATTACK"
+ 	E.AbilityE = ability(116, UDim2.new(1, -162, 1, 0), U.TONES.Blue, "E")
+ 	E.AbilityR = ability(116, UDim2.new(1, 0, 1, -162), U.TONES.Purple, "R")
++	E.AbilityE.Button.Name = "AbilityE"
++	E.AbilityR.Button.Name = "AbilityR"
+ 
+ 	-- auto clickers (left of the ability cluster)
+ 	-- owner 2026-11-02: smaller auto clicker buttons; the OP Auto Clicker is always shown (rainbow, "SOON" until the pass has an Id)
+-	local ac = U.new("Frame", {AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(120, 160), BackgroundTransparency = 1, Parent = br})
++	local ac = U.new("Frame", {Name = "AutoTraining", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -290, 1, 0), Size = UDim2.fromOffset(120, 160), BackgroundTransparency = 1, Parent = br})
+ 	local opTitle = U.text({Text = "OP Auto Clicker", Size = UDim2.fromOffset(120, 18), TextColor3 = C(255, 220, 60), Stroke = 2, Parent = ac})
+ 	U.rainbow(opTitle)
+ 	local op, opL = U.button({Text = "PASS", Color = C(255, 255, 255), Size = UDim2.fromOffset(112, 46), Position = UDim2.fromOffset(4, 20), Radius = 6, StrokeT = 3, StudTile = 16, Parent = ac})
+@@ -196,39 +199,63 @@
+ 	U.corner(4).Parent = E.FreeAutoFill
+ 	E.FreeAuto, E.FreeAutoLabel = fr, frL
+ 	---------------------------------------------------------------- responsive: scale the whole HUD with the viewport; keep combat clear of touch controls
+-	local scale = U.new("UIScale", {Parent = gui})
++	local scale = U.new("UIScale", {Name = "ResponsiveScale", Parent = gui})
+ 	local UIS = game:GetService("UserInputService")
++	local leftScale = U.new("UIScale", {Parent = left})
++	local dailyScale = U.new("UIScale", {Parent = dailyBar})
++	local counterScale = U.new("UIScale", {Parent = cur})
++	local topScale = U.new("UIScale", {Parent = tr})
++	local progressScale = U.new("UIScale", {Parent = bc})
++	local combatScale = U.new("UIScale", {Parent = br})
+ 	local function layout()
+-		local cam = workspace.CurrentCamera
+-		local v = cam and cam.ViewportSize or Vector2.new(1366, 768)
+-		local s = math.clamp(math.min(v.X / 1366, v.Y / 768), 0.48, 1.15)
+-		local touch = UIS.TouchEnabled and not UIS.KeyboardEnabled
++		local v = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1366, 768)
+ 		local portrait = v.Y > v.X
+-		if touch then s = math.clamp(s * 1.18, 0.5, 1) end
++		-- Hybrid devices and Studio's simulator may report both touch and keyboard.
++		local touch = UIS.TouchEnabled
++		local s = math.clamp(math.min(v.X / 1366, v.Y / 768), 0.6, 1.15)
+ 		scale.Scale = s
+-		-- abilities sit left of / above the mobile jump button; never under the thumbstick
+-		br.Position = touch and UDim2.new(1, -(portrait and 20 or 150), 1, -(portrait and 150 or 14)) or UDim2.new(1, -14, 1, -14)
+-		-- portrait phones: centre block moves up above the ability cluster; side counters tuck in
+-		bc.Position = portrait and UDim2.new(0.5, 0, 1, -330) or UDim2.new(0.5, -90, 1, -10)
+-		cur.Visible = not (touch and portrait)
+-		-- narrow (4:3 / tablet / portrait): auto clickers stack above the ability cluster so the centre block never collides
+-		local narrow = v.X / math.max(v.Y, 1) < 1.6
+-		ac.Position = narrow and UDim2.new(1, 0, 1, -300) or UDim2.new(1, -290, 1, 0)
+-		-- left menu always starts below Roblox's top bar (unscaled ~58px)
+-		local top = math.max(92, 66 / s)
+-		dailyBar.Position = UDim2.fromOffset(14, top)
+-		left.Position = UDim2.fromOffset(14, top + 56)
+-		cur.Position = UDim2.fromOffset(14, top + 368)
+-		-- top-centre boss bar / banner drop below the top-right icon row when the screen is narrow
+-		boss.Position = narrow and UDim2.new(0.5, -40, 0, 100) or UDim2.new(0.5, -40, 0, 10)
+-		banner.Position = narrow and UDim2.new(0.5, -40, 0, 182) or UDim2.new(0.5, -40, 0, 92)
++		local top = math.max(76, 66 / s)
++		leftScale.Scale = portrait and 1 or 0.9
++		dailyScale.Scale = leftScale.Scale
++		dailyBar.Position = UDim2.fromOffset(14, portrait and top + 90 or top)
++		left.Position = UDim2.fromOffset(14, portrait and top + 146 or top + 52)
++		counterScale.Scale = portrait and 0.7 or 0.8
++		cur.Position = UDim2.fromOffset(14, portrait and top + 452 or top + 330)
++		cur.Visible = true
++		topScale.Scale = portrait and 1.05 or 0.85
++		tr.Size = UDim2.fromOffset(380, 72)
++		tr.Position = UDim2.new(1, -14, 0, portrait and top or 12)
++		progressScale.Scale = portrait and 0.83 or 0.86
++		bc.Position = portrait and UDim2.new(0.5, 0, 1, -400) or UDim2.new(0.5, -30, 1, -12)
++		packs.Visible = not portrait
++		-- Keep the reference triangle, reserving the bottom corners for native touch controls.
++		combatScale.Scale = portrait and 0.94 or 0.9
++		br.Position = touch and UDim2.new(1, -(portrait and 18 or 170), 1, -(portrait and 170 or 20)) or UDim2.new(1, -14, 1, -14)
++		for _, a in {E.Attack, E.AbilityE, E.AbilityR} do a.Badge.Visible = not touch end
++		ac.Parent = portrait and gui or br
++		ac.AnchorPoint = Vector2.new(1, portrait and 0 or 1)
++		ac.Position = portrait and UDim2.new(1, -14, 0, top + 120) or UDim2.new(1, -290, 1, 0)
++		boss.Size = UDim2.fromOffset(portrait and 400 or 420, 60)
++		boss.Position = UDim2.new(0.5, 0, 0, portrait and top + 92 or 14)
++		banner.Size = UDim2.fromOffset(portrait and 420 or 560, 46)
++		banner.Position = UDim2.new(0.5, 0, 0, portrait and top + 172 or 96)
+ 	end
+ 	---------------------------------------------------------------- slide the HUD off-screen while a menu is open (reference clips)
+-	local slides = {{dailyBar, -1, 0}, {left, -1, 0}, {cur, -1, 0}, {tr, 0, -1}, {br, 1, 0}, {bc, 0, 1}, {E.Promo, 1, 0}}
++	local slides = {{dailyBar, -1, 0}, {left, -1, 0}, {cur, -1, 0}, {tr, 0, -1}, {br, 1, 0}, {bc, 0, 1}, {E.Promo, 1, 0}, {ac, 1, 0}}
+ 	local shown: {[GuiObject]: UDim2} = {}
+ 	local hidden = false
+ 	local TS = game:GetService("TweenService")
+-	local function offFor(sl): UDim2 return UDim2.fromOffset(sl[2] * 760, sl[3] * 560) end
++	local slideTweens: {[GuiObject]: Tween} = {}
++	local function slideTo(o: GuiObject, info: TweenInfo, position: UDim2)
++		if slideTweens[o] then slideTweens[o]:Cancel() end
++		local tw = TS:Create(o, info, {Position = position})
++		slideTweens[o] = tw
++		tw:Play()
++	end
++	local function offFor(sl): UDim2
++		local v = workspace.CurrentCamera.ViewportSize
++		return UDim2.fromOffset(sl[2] * (v.X / scale.Scale + 760), sl[3] * (v.Y / scale.Scale + 560))
++	end
+ 	function E.SetHidden(h: boolean)
+ 		if h == hidden then return end
+ 		hidden = h
+@@ -236,14 +263,15 @@
+ 			local o = sl[1] :: GuiObject
+ 			if h then
+ 				shown[o] = o.Position
+-				TS:Create(o, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = o.Position + offFor(sl)}):Play()
++				slideTo(o, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), o.Position + offFor(sl))
+ 			elseif shown[o] then
+-				TS:Create(o, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = shown[o]}):Play()
++				slideTo(o, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out), shown[o])
+ 				shown[o] = nil
+ 			end
+ 		end
+ 	end
+ 	local function relayout()
++		for o, tw in slideTweens do tw:Cancel(); slideTweens[o] = nil end
+ 		layout()
+ 		if hidden then -- keep hidden pieces off-screen, remember where they belong
+ 			for _, sl in slides do local o = sl[1] :: GuiObject; shown[o] = o.Position; o.Position = o.Position + offFor(sl) end
+@@ -251,6 +279,7 @@
+ 	end
+ 	layout()
+ 	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(relayout) end
++	UIS:GetPropertyChangedSignal("TouchEnabled"):Connect(relayout)
+ 	E.Layout = relayout
+ 	return E
+ end
+--- baseline/StarterPlayer.StarterPlayerScripts.Client.Main.luau
++++ candidate/StarterPlayer.StarterPlayerScripts.Client.Main.luau
+@@ -38,17 +38,9 @@
+ 
+ ---------------------------------------------------------------- root gui + scaling
+ local gui = U.new("ScreenGui", {Name = "HUD", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = player:WaitForChild("PlayerGui")})
+-local uiScale = U.new("UIScale", {Parent = gui})
+-local function rescale()
+-	local vp = workspace.CurrentCamera.ViewportSize
+-	uiScale.Scale = math.clamp(math.min(vp.X / 1500, vp.Y / 820), 0.5, 1.25)
+-end
+-rescale()
+-workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
+-local isTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+-
++-- HUD owns viewport scaling and input badges; a second root scale breaks phone sizing.
+ local E = HUDView.Build(gui)
+-for _, b in {E.Attack, E.AbilityE, E.AbilityR} do b.Badge.Visible = not isTouch end
++task.spawn(function() require(Client:WaitForChild("Presentation")).Start() end)
+ 
+ local ctx: any = {Gui = gui, Action = Remotes.Action, EquipSign = Remotes.EquipSign, TeleportStage = Remotes.TeleportStage, Profile = nil}
+ ctx.SetHud = function(visible: boolean) E.SetHidden(not visible) end
+@@ -292,18 +284,37 @@
+ 	Sfx.Jutsu(j.Vfx)
+ end
+ 
+-E.Attack.Button.MouseButton1Click:Connect(primary)
++-- Hold repeats combat only. Training still comes from taps or the existing auto clicker.
++local heldPrimary: InputObject? = nil
++local function beginPrimary(input: InputObject)
++	if Menus.IsOpen() then return end
++	heldPrimary = input
++	primary()
++end
++E.Attack.Button.InputBegan:Connect(function(input)
++	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then beginPrimary(input) end
++end)
++UserInputService.InputEnded:Connect(function(input)
++	if input == heldPrimary or input.UserInputType == Enum.UserInputType.MouseButton1 or input.KeyCode == Enum.KeyCode.ButtonR2 then heldPrimary = nil end
++end)
++UserInputService.WindowFocusReleased:Connect(function() heldPrimary = nil end)
++RunService.Heartbeat:Connect(function()
++	if not heldPrimary then return end
++	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
++	if Menus.IsOpen() or not hum or hum.Health <= 0 then heldPrimary = nil; return end
++	attack()
++end)
+ E.AbilityE.Button.MouseButton1Click:Connect(function() cast("E") end)
+ E.AbilityR.Button.MouseButton1Click:Connect(function() cast("R") end)
+ 
+ UserInputService.InputBegan:Connect(function(input, gpe)
+ 	if gpe then return end
+ 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+-		if not Menus.IsOpen() then primary() end
++		if not Menus.IsOpen() then beginPrimary(input) end
+ 	elseif input.KeyCode == Enum.KeyCode.E or input.KeyCode == Enum.KeyCode.ButtonX then cast("E")
+ 	elseif input.KeyCode == Enum.KeyCode.R or input.KeyCode == Enum.KeyCode.ButtonY then cast("R")
+ 	elseif input.KeyCode == Enum.KeyCode.F or input.KeyCode == Enum.KeyCode.ButtonL2 then train()
+-	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then primary()
++	elseif input.KeyCode == Enum.KeyCode.ButtonR2 then beginPrimary(input)
+ 	elseif input.KeyCode == Enum.KeyCode.ButtonB and Menus.IsOpen() then Menus.Close()
+ 	end
+ end)
+--- baseline/StarterPlayer.StarterPlayerScripts.Client.Menus.luau
++++ candidate/StarterPlayer.StarterPlayerScripts.Client.Menus.luau
+@@ -91,7 +91,7 @@
+ 	ctx = c
+ 	root = U.new("Frame", {Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.6, 0.74),
+ 		BackgroundColor3 = C(18, 18, 22), BackgroundTransparency = 0.12, Visible = false, Parent = c.Gui, ZIndex = 5})
+-	U.new("UISizeConstraint", {MinSize = Vector2.new(300, 280), MaxSize = Vector2.new(1060, 720), Parent = root})
++	U.new("UISizeConstraint", {MinSize = Vector2.new(280, 240), MaxSize = Vector2.new(1060, 1100), Parent = root})
+ 	U.corner(6).Parent = root
+ 	U.stroke(4, C(0, 0, 0), Enum.ApplyStrokeMode.Border).Parent = root
+ 	local bodyRim = U.new("Frame", {Name = "BodyRim", Position = UDim2.fromOffset(3, 3), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, ZIndex = 5, Parent = root})
+@@ -119,15 +119,27 @@
+ 	local function fit()
+ 		local cam = workspace.CurrentCamera
+ 		local v = cam and cam.ViewportSize or Vector2.new(1280, 720)
+-		local compact = current == "Rebirth" or current == "Codes" -- owner: Codes small + compact like Rebirth
+-		if v.X < 900 then root.Size = compact and UDim2.fromScale(0.84, 0.6) or UDim2.fromScale(0.92, 0.86)
+-		elseif current == "Codes" then root.Size = UDim2.fromScale(0.42, 0.36)
+-		elseif current == "Settings" then root.Size = UDim2.fromScale(0.56, 0.6)
+-		else root.Size = compact and UDim2.fromScale(0.46, 0.46) or UDim2.fromScale(0.7, 0.82) end
++		local compact = current == "Rebirth" or current == "Codes"
++		local scale = c.Gui:FindFirstChild("ResponsiveScale")
++		local s = scale and scale.Scale or 1
++		local portrait = v.Y > v.X
++		local desiredWidth = current == "Auras" and 530 or (compact and 620 or 940)
++		if current == "Settings" then desiredWidth = 760 end
++		local desiredHeight = current == "Codes" and 330 or (current == "Rebirth" and 420 or 650)
++		local width = portrait and v.X * 0.9 / s or math.min(desiredWidth, v.X * 0.82 / s)
++		local height = portrait and math.min(1000, v.Y * 0.73 / s) or math.min(desiredHeight, (v.Y - 110) / s)
++		root.Size = UDim2.fromOffset(width, height)
++		close.Size = UDim2.fromOffset(portrait and 70 or 56, portrait and 70 or 56)
++		headerFrame.Size = UDim2.new(1, 0, 0, portrait and 88 or 72)
++		body.Position = UDim2.fromOffset(14, portrait and 104 or 88)
++		body.Size = UDim2.new(1, -28, 1, -(portrait and 116 or 100))
+ 	end
+ 	M.Fit = fit
+ 	fit()
+-	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
++	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
++		fit()
++		if root.Visible then task.defer(M.Refresh) end
++	end) end
+ end
+ 
+ function M.IsOpen() return root.Visible end
+@@ -300,7 +312,8 @@
+ 	local k, node = 1, parent :: Instance?
+ 	while node do local us = node:FindFirstChildOfClass("UIScale"); if us and us.Scale > 0 then k *= us.Scale end; node = node.Parent; if node and node:IsA("PlayerGui") then break end end
+ 	local w = parent.AbsoluteSize.X / k
+-	local cols = w < 380 and 2 or (w < 560 and 3 or 4)
++	local vp = workspace.CurrentCamera.ViewportSize
++	local cols = vp.X < 600 and 2 or (w < 560 and 3 or 4)
+ 	local cellW = math.max(80, (w - 16 - 10 * cols) / cols)
+ 	U.new("UIGridLayout", {CellSize = UDim2.fromOffset(cellW, math.floor(cellW / 0.92)), CellPadding = UDim2.fromOffset(10, 10), FillDirectionMaxCells = cols, SortOrder = Enum.SortOrder.LayoutOrder,
+ 		HorizontalAlignment = Enum.HorizontalAlignment.Center, Parent = parent})
+@@ -480,17 +493,17 @@
+ 		U.corner(6).Parent = iconBox
+ 		U.new("ImageLabel", {BackgroundTransparency = 1, Image = AssetsMod.Icon("Aura"), ImageColor3 = a.Color:Lerp(Color3.new(1, 1, 1), 0.15), ScaleType = Enum.ScaleType.Fit,
+ 			Size = UDim2.fromScale(0.9, 0.9), Position = UDim2.fromScale(0.05, 0.05), ZIndex = 7, Parent = iconBox})
+-		local n = label(f, a.Name, UDim2.fromOffset(94, 10), UDim2.new(0.42, -94, 0, 36), nil, Enum.TextXAlignment.Left, 3.5); n.ZIndex = 6
+-		local m = label(f, "x" .. a.Mult .. " Hand Signs", UDim2.fromOffset(94, 48), UDim2.new(0.42, -94, 0, 26), C(255, 225, 90), Enum.TextXAlignment.Left, 2.5); m.ZIndex = 6
++		local n = label(f, a.Name, UDim2.fromOffset(94, 10), UDim2.new(1, -228, 0, 30), nil, Enum.TextXAlignment.Left, 3.5); n.ZIndex = 6
++		local m = label(f, "x" .. a.Mult .. " Hand Signs", UDim2.fromOffset(94, 40), UDim2.new(1, -228, 0, 22), C(255, 225, 90), Enum.TextXAlignment.Left, 2.5); m.ZIndex = 6
+ 		if not has then
+-			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " TROPHIES") or ("STAGE " .. a.Stage), UDim2.new(0.42, 0, 0.5, -16), UDim2.new(0.24, 0, 0, 32), Color3.new(1, 1, 1), Enum.TextXAlignment.Right, 3)
++			local pr = label(f, highest >= a.Stage and (fmt(a.Cost) .. " TROPHIES") or ("STAGE " .. a.Stage), UDim2.fromOffset(94, 66), UDim2.new(1, -228, 0, 20), C(230, 235, 255), Enum.TextXAlignment.Left, 1.5)
+ 			pr.ZIndex = 6
+ 		end
+ 		local text, col
+ 		if has then text, col = eq and "UNEQUIP" or "EQUIP", eq and C(235, 90, 70) or U.GREEN
+ 		elseif highest >= a.Stage then text, col = "BUY", U.ORANGE
+ 		else text, col = "LOCKED", U.GREY end
+-		local b = U.button({Text = text, Color = col, Size = UDim2.new(0.28, 0, 0, 60), Position = UDim2.new(1, -10, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Radius = 6, StrokeT = 3, Parent = f})
++		local b = U.button({Text = text, Color = col, Size = UDim2.fromOffset(116, 52), Position = UDim2.new(1, -10, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Radius = 6, StrokeT = 3, Parent = f})
+ 		b.ZIndex = 7
+ 		studs(b, 0.35, 18)
+ 		b.MouseButton1Click:Connect(function()
+--- baseline/StarterPlayer.StarterPlayerScripts.Client.Presentation.luau
++++ candidate/StarterPlayer.StarterPlayerScripts.Client.Presentation.luau
+@@ -41,8 +41,8 @@
+ 	if course then
+ 		course.DescendantAdded:Connect(dressStage)
+ 		for _, stage in course:GetChildren() do
+-			local wall = stage:FindFirstChild("StartWall")
+-			if wall then dressStage(wall) end
++			-- Entrance gates split StartWall into two siblings with the same name.
++			for _, piece in stage:GetChildren() do dressStage(piece) end
+ 		end
+ 	end
+ end
+--- baseline/StarterPlayer.StarterPlayerScripts.Client.UIKit.luau
++++ candidate/StarterPlayer.StarterPlayerScripts.Client.UIKit.luau
+@@ -89,7 +89,7 @@
+ function U.studs(parent: Instance, transp: number?, tile: number?): ImageLabel
+ 	local px = math.max(30, math.floor((tile or 34) * 1.35)) * U.STUDS_PER_SHEET -- tile = size of ONE stud
+ 	local s = U.new("ImageLabel", {Name = "Studs", BackgroundTransparency = 1, Image = U.STUDS, ScaleType = Enum.ScaleType.Tile,
+-		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp((transp or 0.1) * 0.4, 0, 0.3), Size = UDim2.fromScale(1, 1), Parent = parent})
++		TileSize = UDim2.fromOffset(px, px), ImageTransparency = math.clamp(transp or 0.35, 0.25, 0.8), Size = UDim2.fromScale(1, 1), Parent = parent})
+ 	if parent:IsA("GuiObject") then s.ZIndex = parent.ZIndex end
+ 	U.corner(8).Parent = s
+ 	return s
+@@ -178,14 +178,14 @@
+ 	if props.Studs ~= false then U.studs(b, 0.3, props.StudTile or 20) end
+ 	local label = U.text({Name = "Label", Text = props.Text or "", Size = UDim2.new(1, -10, 0.74, -4), Position = UDim2.fromOffset(5, 3),
+ 		TextSize = props.TextSize, TextScaled = props.TextSize == nil, Stroke = props.TextStroke or 3, Parent = b})
+-	local base = b.Size
++	local press = U.motionScale(b)
+ 	if props.Hover ~= false then U.hover(b, {Scale = props.HoverScale or 1.07, Tilt = props.HoverTilt or 0}) end
+ 	b.MouseButton1Down:Connect(function()
+ 		local okS, Sfx = pcall(require, script.Parent:FindFirstChild("Sfx"))
+ 		if okS and Sfx then Sfx.Play("Click") end
+-		TweenService:Create(b, TweenInfo.new(0.06), {Size = UDim2.new(base.X.Scale * 0.94, base.X.Offset * 0.94, base.Y.Scale * 0.94, base.Y.Offset * 0.94)}):Play()
++		TweenService:Create(press, TweenInfo.new(0.06), {Scale = 0.94}):Play()
+ 	end)
+-	local function up() TweenService:Create(b, TweenInfo.new(0.12, Enum.EasingStyle.Back), {Size = base}):Play() end
++	local function up() TweenService:Create(press, TweenInfo.new(0.12, Enum.EasingStyle.Back), {Scale = 1}):Play() end
+ 	b.MouseButton1Up:Connect(up)
+ 	b.MouseLeave:Connect(up)
+ 	return b, label

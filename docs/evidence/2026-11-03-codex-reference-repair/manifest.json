@@ -1,0 +1,73 @@
+{
+  "placeId": 72288975594385,
+  "changedSources": [
+    "ServerScriptService.Services.EnemyService.luau",
+    "StarterPlayer.StarterPlayerScripts.Client.HUD.luau",
+    "StarterPlayer.StarterPlayerScripts.Client.Main.luau",
+    "StarterPlayer.StarterPlayerScripts.Client.Menus.luau",
+    "StarterPlayer.StarterPlayerScripts.Client.Presentation.luau",
+    "StarterPlayer.StarterPlayerScripts.Client.UIKit.luau"
+  ],
+  "files": {
+    "changes.patch": {
+      "bytes": 32167,
+      "sha256": "e1edfcf714a95dd2e1f94b05459c0f820317b3fa4350a6993042f38e40bfd48a",
+      "gitBlob": "47469af7cc87734a70641b631941d82609fe1672"
+    },
+    "console.txt": {
+      "bytes": 81,
+      "sha256": "c8c080d29c0348df7e238fd415c24c7810051116a6296d8a29405ef37e0efcf4",
+      "gitBlob": "e96f03e2506ad9af68a675c839332e5c053e73a9"
+    },
+    "README.md": {
+      "bytes": 8256,
+      "sha256": "197fdec53776f79ee7390e1c5e8bfc9eae06198bede50ab8b9d5d96da1b7edb8",
+      "gitBlob": "6f1874866e466151dd3abd26ffcecedfd6c71b69"
+    },
+    "screenshots/nov3-after-auras.jpg": {
+      "bytes": 338801,
+      "sha256": "730b3f9bccfe240084cd95c761cef6c37e8c889bf451d69169d4e570b1c7c59c",
+      "gitBlob": "d15c6b43c0f6f3c3029c3c9e3c072129c0d7848d"
+    },
+    "screenshots/nov3-after-desktop.jpg": {
+      "bytes": 576656,
+      "sha256": "39f75cd7524fbc9cffecdb583a4e143eaedc3969a754408d2c524990f8ef17e9",
+      "gitBlob": "31ad84dab5bcc9e6669fcf457b3e84b99ca08e78"
+    },
+    "screenshots/nov3-before-auras-settled.jpg": {
+      "bytes": 430862,
+      "sha256": "20e5942679f13d20a8abde2ca00cfe6703bcf48fdd70d31509d69d557e8dc175",
+      "gitBlob": "f9623c83f06df7f79cb274eeb2e96e2840d47566"
+    },
+    "screenshots/nov3-before-desktop.jpg": {
+      "bytes": 590165,
+      "sha256": "6aa698780f6fa71a994e049bb7445276856040a3b39c53922fbdce040462fb28",
+      "gitBlob": "805abf8c3d323d4a52da1b5b8c3495f058f57d00"
+    },
+    "screenshots/nov3-desktop-final.jpg": {
+      "bytes": 583503,
+      "sha256": "360588b6cf1890d011f85bcc5a58a99e624653239e238741ad1f38648e05a744",
+      "gitBlob": "b6bfd49c824e00a05a56a36fbe8f3aab17833ffa"
+    },
+    "screenshots/nov3-enemy-combat.jpg": {
+      "bytes": 597641,
+      "sha256": "ae5aabffe693f01946a7e62c16d9c2b835087c8f8e36b1a3c4df4dbc23545e6c",
+      "gitBlob": "cb506eee9fd1a3615c14ffb722bf1140ba91287e"
+    },
+    "screenshots/nov3-mobile-final.jpg": {
+      "bytes": 89290,
+      "sha256": "bd6c3fa18e2cbd706675831e4edef8f15ca6c5340c4fd2269e4bba82883c6cd5",
+      "gitBlob": "767b6f3e3a5ebbba79b50979f734d87790956451"
+    },
+    "screenshots/nov3-mobile-menu-final.jpg": {
+      "bytes": 90205,
+      "sha256": "3590d02b32f138c7208951fb615d276f1420cf4e188ea9f44a2baf7d5ed78a19",
+      "gitBlob": "8d4ba5b93f6518fd70cfcbb866951bf5fc5fecb2"
+    },
+    "source-snapshots.zip": {
+      "bytes": 340995,
+      "sha256": "828081c9607191d2ba11a1f44610c6fab80a0e62f5c038a57c9d7fcd576c10ea",
+      "gitBlob": "31429ecdfb0922953e2894ab3a7ed93c2f997ee0"
+    }
+  }
+}

@@ -75,14 +75,23 @@ local function buildRig(stage: number, variant: number, isBoss: boolean, name: s
 		weldPart(model, head, Vector3.new(1.3, 0.28, 1.3), CFrame.new(0, 0.2, 0), Color3.fromRGB(30, 50, 110))
 		weldPart(model, head, Vector3.new(0.7, 0.3, 0.1), CFrame.new(0, 0.2, -0.66), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
 	elseif variant == 2 then
-		-- hood + mask
-		weldPart(model, head, Vector3.new(1.45, 1.35, 1.45), CFrame.new(0, 0.12, 0.08), outfit)
+		-- Open-front hood: side/back pieces preserve the face and eye silhouette.
+		weldPart(model, head, Vector3.new(1.45, 0.3, 1.45), CFrame.new(0, 0.75, 0.08), outfit)
+		weldPart(model, head, Vector3.new(0.2, 1.15, 1.25), CFrame.new(-0.68, 0.1, 0.16), outfit)
+		weldPart(model, head, Vector3.new(0.2, 1.15, 1.25), CFrame.new(0.68, 0.1, 0.16), outfit)
+		weldPart(model, head, Vector3.new(1.25, 1.15, 0.2), CFrame.new(0, 0.1, 0.7), outfit)
 		weldPart(model, head, Vector3.new(1.05, 0.45, 0.1), CFrame.new(0, -0.25, -0.62), Color3.fromRGB(30, 30, 35))
 	else
 		-- straw hat / animal mask
 		weldPart(model, head, Vector3.new(2.6, 0.25, 2.6), CFrame.new(0, 0.75, 0), Color3.fromRGB(200, 170, 100))
 		weldPart(model, head, Vector3.new(1, 0.5, 1), CFrame.new(0, 1, 0), Color3.fromRGB(190, 160, 90))
 		weldPart(model, head, Vector3.new(0.95, 0.75, 0.1), CFrame.new(0, -0.05, -0.62), Color3.fromRGB(245, 245, 245))
+	end
+	-- Original eye details and outfit accents; no borrowed character assets.
+	for _, side in {-1, 1} do
+		weldPart(model, head, Vector3.new(0.32, 0.18, 0.055), CFrame.new(side * 0.27, 0.04, -0.69), Color3.fromRGB(245, 245, 245))
+		weldPart(model, head, Vector3.new(0.11, 0.15, 0.06), CFrame.new(side * 0.27, 0.04, -0.73), isBoss and st.Gate or Color3.fromRGB(205, 45, 65), isBoss and Enum.Material.Neon or Enum.Material.SmoothPlastic)
+		weldPart(model, torso, Vector3.new(0.64, 0.82, 0.14), CFrame.new(side * 0.55, -0.15, -0.65), shade(outfit, 1.25))
 	end
 	if isBoss then
 		weldPart(model, torso, Vector3.new(2.4, 3, 0.2), CFrame.new(0, -1.2, 0.7) * CFrame.Angles(0.15, 0, 0), st.Gate)
@@ -122,9 +131,9 @@ end
 local function makeBillboard(e: Enemy)
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "Info"
-	bb.Size = UDim2.fromOffset(170, 44)
+	bb.Size = UDim2.fromOffset(e.IsBoss and 176 or 132, e.IsBoss and 44 or 36)
 	bb.StudsOffsetWorldSpace = Vector3.new(0, e.IsBoss and 4.6 or 3.4, 0)
-	bb.MaxDistance = 120
+	bb.MaxDistance = e.IsBoss and 100 or 65
 	bb.LightInfluence = 0
 	local nameL = Instance.new("TextLabel")
 	nameL.BackgroundTransparency = 1
@@ -282,10 +291,12 @@ local function ensureSet(owner: Player, stage: number)
 	spawnedSets[key] = true
 	local sf = stageFolder(stage)
 	local spawns = sf and sf:FindFirstChild("EnemySpawns")
-	if not spawns then return end
+	if not spawns then spawnedSets[key] = nil; return end
 	GameService.ResetStageKills(owner, stage) -- a fresh set: the gate opens when every enemy of THIS set is dead
 	local hasBoss = Config.HasBoss(stage)
-	for _, sp in spawns:GetChildren() do
+	local spawnList = spawns:GetChildren()
+	table.sort(spawnList, function(a, b) return a.Name < b.Name end)
+	for _, sp in spawnList do
 		if sp:IsA("BasePart") and (sp.Name ~= "Boss" or hasBoss) then task.spawn(EnemyService.Spawn, stage, sp, owner) end
 	end
 end
@@ -424,7 +435,21 @@ local function think(e: Enemy, now: number)
 	local flat = Vector3.new(hrp.Position.X - e.Root.Position.X, 0, hrp.Position.Z - e.Root.Position.Z)
 	tdist = flat.Magnitude
 	if tdist > reach - 1 then
-		e.Hum:MoveTo(hrp.Position - (tdist > 0.1 and flat.Unit or Vector3.zero) * (reach - 1.5))
+		local destination = hrp.Position - (tdist > 0.1 and flat.Unit or Vector3.zero) * (reach - 1.5)
+		-- Local separation prevents all five non-colliding rigs occupying one point.
+		local separation = Vector3.zero
+		for _, other in EnemyService.Enemies do
+			if other ~= e and other.Owner == owner and other.Stage == e.Stage and not other.Dead then
+				local delta = e.Root.Position - other.Root.Position
+				local d = Vector3.new(delta.X, 0, delta.Z)
+				if d.Magnitude < 4 then
+					local direction = d.Magnitude > 0.1 and d.Unit or Vector3.new(0, 0, e.Id < other.Id and -1 or 1)
+					separation += direction * (4 - d.Magnitude)
+				end
+			end
+		end
+		if separation.Magnitude > 4 then separation = separation.Unit * 4 end
+		e.Hum:MoveTo(destination + separation)
 	else
 		e.Hum:MoveTo(e.Root.Position)
 		if tdist > 0.1 then e.Root.CFrame = CFrame.lookAt(e.Root.Position, e.Root.Position + flat) end -- face the player
@@ -457,7 +482,7 @@ local function think(e: Enemy, now: number)
 						local c = p.Character
 						local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 						local h = c and c:FindFirstChildOfClass("Humanoid")
-						if r and h and (r.Position - at).Magnitude < 9 then hurtPlayer(p, h, e.Damage) end
+						if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 9 then hurtPlayer(p, h, e.Damage) end
 					end
 				end)
 			end
@@ -473,7 +498,7 @@ local function think(e: Enemy, now: number)
 					local c = p.Character
 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 					local h = c and c:FindFirstChildOfClass("Humanoid")
-					if r and h and (r.Position - at).Magnitude < 30 then
+					if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 30 then
 						hurtPlayer(p, h, e.Damage * 2.5)
 						-- characters are client-owned, so the owner applies the knockback
 						local dir = Vector3.new(r.Position.X - at.X, 0, r.Position.Z - at.Z)
@@ -491,7 +516,7 @@ local function think(e: Enemy, now: number)
 			e.Model:SetAttribute("AttackAt", workspace:GetServerTimeNow())
 			GameService.Remotes.Vfx:FireClient(target, "EnemyMelee", e.Model, st.Element)
 			task.delay(0.25, function()
-				if e.Dead or hum.Health <= 0 then return end
+				if e.Dead or hum.Health <= 0 or target.Character ~= hum.Parent or playerStage(target) ~= e.Stage then return end
 				-- the hit only lands if the player is still in reach, in front of the enemy and at the same height
 				local d = hrp.Position - e.Root.Position
 				local fl = Vector3.new(d.X, 0, d.Z)
@@ -509,13 +534,13 @@ local function think(e: Enemy, now: number)
 					local c = p.Character
 					local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 					local h = c and c:FindFirstChildOfClass("Humanoid")
-					if r and h and (r.Position - at).Magnitude < 12 then hurtPlayer(p, h, e.Damage * 1.5) end
+					if r and h and h.Health > 0 and playerStage(p) == e.Stage and (r.Position - at).Magnitude < 12 then hurtPlayer(p, h, e.Damage * 1.5) end
 				end
 			end)
 			if e.Stage == Config.StageCount and math.random() < 0.4 then
 				-- final boss teleports behind the player
 				task.delay(1.2, function()
-					if e.Dead or not hrp.Parent then return end
+					if e.Dead or not hrp.Parent or target.Character ~= hrp.Parent or playerStage(target) ~= e.Stage then return end
 					GameService.Remotes.Vfx:FireClient(target, "Flicker", e.Root.Position, st.Gate)
 					e.Root.CFrame = hrp.CFrame * CFrame.new(0, 0, 8)
 				end)
