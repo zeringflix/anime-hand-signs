@@ -2,7 +2,7 @@
 
 Status: **VISUAL DESIGN APPROVED BY USER. DO NOT REDESIGN.**
 
-This note refers to the transparent 10-pet sprite sheet created in the Nov 4 ChatGPT session, named **anime_hand_signs_pets_transparent.png** (1774 × 887, RGBA, genuine alpha transparency). The image remains available to the user as a ChatGPT download; the PNG bytes are **not yet committed** to this repository, so do not pretend this document is the image. Ask for/copy the PNG into `docs/assets/pets/approved_pet_lineup_transparent.png` when working with the project.
+This note refers to the transparent 10-pet sprite sheet created in the Nov 4 ChatGPT session, named **anime_hand_signs_pets_transparent.png** (1774 × 887, RGBA, genuine alpha transparency). A transparent **low-resolution preview** is committed at [approved_pet_lineup_preview.png](assets/pets/approved_pet_lineup_preview.png) for quick visual inspection. The full-resolution 1774 × 887 PNG is available from the ChatGPT response but its full bytes are **not yet committed** to the repository; use the full-resolution file to model details. Ask for/copy the PNG into `docs/assets/pets/approved_pet_lineup_transparent.png` when working with the project.
 
 ## Layout (2 rows × 5 columns, left to right)
 
