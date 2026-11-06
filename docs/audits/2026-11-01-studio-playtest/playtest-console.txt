@@ -1,0 +1,45 @@
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_LifetimeHandSigns_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: UpdateAsync, Data Store: HandSignsPlayerData_v1
+[DataService] load failed for Lausming 403: Cannot write to DataStore from studio if API access is not enabled.
+[DataService] Studio: DataStore unavailable (enable Studio API access). Using a temporary profile that will NOT save.
+ServerScriptService.Services.GameService:178: attempt to compare nil <= number
+Stack Begin
+Script 'ServerScriptService.Services.GameService', Line 178 - function CanUnlock
+Script 'ServerScriptService.Services.GameService', Line 185 - function CheckUnlocks
+Script 'ServerScriptService.Services.GameService', Line 342
+Stack End
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Stage_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Stage_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Rebirths_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Rebirths_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Trophies_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Trophies_v1
+ServerScriptService.Services.GameService:178: attempt to compare nil <= number
+Stack Begin
+Script 'ServerScriptService.Services.GameService', Line 178 - function CanUnlock
+Script 'ServerScriptService.Services.GameService', Line 185 - function CheckUnlocks
+Script 'ServerScriptService.Services.GameService', Line 124 - function AddHandSigns
+Script 'ServerScriptService.Services.SystemsService', Line 548
+Stack End
+ServerScriptService.Services.GameService:178: attempt to compare nil <= number
+Stack Begin
+Script 'ServerScriptService.Services.GameService', Line 178 - function CanUnlock
+Script 'ServerScriptService.Services.GameService', Line 185 - function CheckUnlocks
+Script 'ServerScriptService.Services.GameService', Line 124 - function AddHandSigns
+Script 'ServerScriptService.Services.GameService', Line 170
+Stack End
+ServerScriptService.Services.GameService:178: attempt to compare nil <= number
+Stack Begin
+Script 'ServerScriptService.Services.GameService', Line 178 - function CanUnlock
+Script 'ServerScriptService.Services.GameService', Line 185 - function CheckUnlocks
+Script 'ServerScriptService.Services.GameService', Line 124 - function AddHandSigns
+Script 'ServerScriptService.Services.GameService', Line 170
+Stack End
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_LifetimeHandSigns_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_LifetimeHandSigns_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Stage_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Stage_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Rebirths_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Rebirths_v1
+DataStoreService: StudioAccessToApisNotAllowed: Cannot write to DataStore from studio if API access is not enabled. API: SetAsync, Data Store: LB_Trophies_v1
+DataStoreService: StudioAccessToApisNotAllowed: Studio access to APIs is not allowed. API: GetSortedAsync, Data Store: LB_Trophies_v1
