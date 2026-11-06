@@ -28,6 +28,7 @@ for k, v in {
 	Shadow = "rbxassetid://99975053239911", Shield = "rbxassetid://88978355932705", Shop = "rbxassetid://75003053486678",
 	Smoke = "rbxassetid://122083388151864", Star = "rbxassetid://110617004172405", Swirl = "rbxassetid://123483705467280",
 	Trophy = "rbxassetid://99552622956894", Upgrades = "rbxassetid://99380858469223", Wind = "rbxassetid://108438677330929",
+	Robux = "rbxassetid://139683946430326", Coin = "rbxassetid://110186732780759",
 } do Assets.Icons[k] = v end
 
 -- jutsu VFX family -> icon

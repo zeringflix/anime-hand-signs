@@ -161,10 +161,10 @@ function EnemyService.Spawn(stage: number, spawnPart: BasePart)
 	local variant = isBoss and 3 or ((idx - 1) % 3) + 1
 	local name = isBoss and st.Boss or st.Enemies[variant]
 	local model = buildRig(stage, variant, isBoss, name)
-	if isBoss then model:ScaleTo(stage == 50 and 2.2 or 1.45) end
+	if isBoss then model:ScaleTo(stage == Config.StageCount and 2.2 or 1.45) end
 	local root = model:WaitForChild("HumanoidRootPart") :: BasePart
 	model:PivotTo(CFrame.new(spawnPart.Position + Vector3.new(0, 4, 0)) * CFrame.Angles(0, math.pi / 2, 0))
-	local hpMult = isBoss and (stage == 50 and Config.Economy.BossHpMult * 3 or Config.Economy.BossHpMult) or 1
+	local hpMult = isBoss and (stage == Config.StageCount and Config.Economy.BossHpMult * 3 or Config.Economy.BossHpMult) or 1
 	local e: Enemy = {
 		Id = nextId, Model = model, Root = root, Hum = model:FindFirstChildOfClass("Humanoid") :: Humanoid, Stage = stage, IsBoss = isBoss, Name = name,
 		MaxHp = st.EnemyHp * hpMult, Hp = st.EnemyHp * hpMult, Damage = st.EnemyDamage * (isBoss and 2 or 1),
@@ -186,6 +186,34 @@ function EnemyService.Spawn(stage: number, spawnPart: BasePart)
 	EnemyService.Enemies[e.Id] = e
 	byModel[model] = e
 	return e
+end
+
+-- custom (non-stage) enemies, e.g. the lobby Kyubi raid boss. opts: {Name, MaxHp, Color, OnHit, OnKill}
+function EnemyService.SpawnCustom(model: Model, opts: any): Enemy
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
+	local e: any = {
+		Id = nextId, Model = model, Root = root, Hum = model:FindFirstChildOfClass("Humanoid"), Stage = 0, IsBoss = true, Name = opts.Name,
+		MaxHp = opts.MaxHp, Hp = opts.MaxHp, Damage = 0, Credit = {}, RootedUntil = 0, NextAttack = math.huge, Home = root.Position,
+		Dead = false, Burning = 0, SpawnName = "Custom", Custom = true, Color = opts.Color, OnHit = opts.OnHit, OnKill = opts.OnKill,
+	}
+	nextId += 1
+	model:SetAttribute("EnemyId", e.Id)
+	model:SetAttribute("Stage", 0)
+	model:SetAttribute("Boss", true)
+	makeBillboard(e)
+	updateBar(e)
+	model.Parent = folder
+	EnemyService.Enemies[e.Id] = e
+	byModel[model] = e
+	return e
+end
+
+function EnemyService.Remove(e: Enemy)
+	if e.Dead then return end
+	e.Dead = true
+	EnemyService.Enemies[e.Id] = nil
+	byModel[e.Model] = nil
+	e.Model:Destroy()
 end
 
 function EnemyService.FromModel(m: Instance?): Enemy?
@@ -238,6 +266,8 @@ function EnemyService.Damage(e: Enemy, amount: number, player: Player?, knockbac
 	end
 	e.Hp -= amount
 	updateBar(e)
+	local ex = e :: any
+	if ex.OnHit and player then task.spawn(ex.OnHit, player, amount) end
 	if knockback and not e.IsBoss then
 		e.Root.AssemblyLinearVelocity = knockback
 	end
@@ -250,6 +280,13 @@ function EnemyService.Kill(e: Enemy)
 	e.Dead = true
 	EnemyService.Enemies[e.Id] = nil
 	byModel[e.Model] = nil
+	local ex = e :: any
+	if ex.Custom then
+		GameService.Remotes.Vfx:FireAllClients("Death", e.Model.Name, e.Root.Position, ex.Color or Color3.new(1, 0.5, 0.1))
+		e.Model:Destroy()
+		if ex.OnKill then task.spawn(ex.OnKill, e) end
+		return
+	end
 	GameService.Remotes.Vfx:FireAllClients("Death", e.Model.Name, e.Root.Position, Config.Stages[e.Stage].Gate)
 	for player in e.Credit do
 		if player.Parent then GameService.CreditKill(player, e.Stage, e.IsBoss) end
@@ -412,7 +449,7 @@ local function think(e: Enemy, now: number)
 					if r and h and (r.Position - at).Magnitude < 12 then hurtPlayer(p, h, e.Damage * 1.5) end
 				end
 			end)
-			if e.Stage == 50 and math.random() < 0.4 then
+			if e.Stage == Config.StageCount and math.random() < 0.4 then
 				-- final boss teleports behind the player
 				task.delay(1.2, function()
 					if e.Dead or not hrp.Parent then return end
